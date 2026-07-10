@@ -15,15 +15,15 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("MedVision annotation visualizer")]
 [assembly: AssemblyCompany("MedVision")]
 [assembly: AssemblyProduct("MedVision Annotation Viewer")]
-[assembly: AssemblyVersion("1.5.1.0")]
-[assembly: AssemblyFileVersion("1.5.1.0")]
-[assembly: AssemblyInformationalVersion("1.5.1")]
+[assembly: AssemblyVersion("1.5.2.0")]
+[assembly: AssemblyFileVersion("1.5.2.0")]
+[assembly: AssemblyInformationalVersion("1.5.2")]
 
 namespace MedVision.AnnotationViewer
 {
     internal static class Program
     {
-        public const string AppVersion = "1.5.1";
+        public const string AppVersion = "1.5.2";
 
         [STAThread]
         private static void Main(string[] args)
@@ -76,6 +76,7 @@ namespace MedVision.AnnotationViewer
         private readonly Label fileInfoLabel = new Label();
         private readonly TextBox predFolderText = new TextBox();
         private readonly Button predBrowseButton = new Button();
+        private readonly Label iouLabel = new Label();
         private readonly NumericUpDown iouNumeric = new NumericUpDown();
         private readonly CheckBox gtOnlyCheckBox = new CheckBox();
         private readonly CheckBox errorAnalysisCheckBox = new CheckBox();
@@ -122,14 +123,7 @@ namespace MedVision.AnnotationViewer
                 SetStatus("请选择包含图片和 JSON/TXT 标注文件的文件夹。");
             }
 
-            string defaultPredFolder = FindDefaultPredictionFolder();
-            if (!string.IsNullOrEmpty(defaultPredFolder))
-            {
-                predFolderText.Text = defaultPredFolder;
-                ReloadCurrentPredictions();
-                RenderCurrent();
-                UpdateCurrentStatus();
-            }
+            UpdatePredictionControlsState();
         }
 
         private void BuildLayout()
@@ -206,14 +200,13 @@ namespace MedVision.AnnotationViewer
             compareBar.Controls.Add(predLabel, 0, 0);
 
             predFolderText.Dock = DockStyle.Fill;
-            predFolderText.ReadOnly = true;
+            predFolderText.ReadOnly = false;
             compareBar.Controls.Add(predFolderText, 1, 0);
 
             predBrowseButton.Text = "选择Pred";
             predBrowseButton.Dock = DockStyle.Fill;
             compareBar.Controls.Add(predBrowseButton, 2, 0);
 
-            Label iouLabel = new Label();
             iouLabel.Dock = DockStyle.Fill;
             iouLabel.Text = "IoU";
             iouLabel.TextAlign = ContentAlignment.MiddleRight;
@@ -338,6 +331,7 @@ namespace MedVision.AnnotationViewer
             reloadButton.Click += delegate { LoadFolder(folderText.Text); };
             statsButton.Click += delegate { ShowAnnotationStats(); };
             predBrowseButton.Click += delegate { BrowseForPredictionFolder(); };
+            predFolderText.TextChanged += delegate { OnPredictionFolderChanged(); };
             comparisonStatsButton.Click += delegate { ShowComparisonStats(); };
             exportCompareButton.Click += delegate { ExportComparisonImages(); };
             iouNumeric.ValueChanged += delegate
@@ -456,27 +450,6 @@ namespace MedVision.AnnotationViewer
             return null;
         }
 
-        private static string FindDefaultPredictionFolder()
-        {
-            string runsPredict = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "runs", "predict"));
-            if (!Directory.Exists(runsPredict))
-            {
-                runsPredict = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "runs", "predict"));
-            }
-
-            if (!Directory.Exists(runsPredict))
-            {
-                return null;
-            }
-
-            DirectoryInfo latest = Directory.GetDirectories(runsPredict, "labels", SearchOption.AllDirectories)
-                .Select(path => new DirectoryInfo(path))
-                .OrderByDescending(info => info.LastWriteTimeUtc)
-                .FirstOrDefault();
-
-            return latest == null ? null : latest.FullName;
-        }
-
         private void BrowseForFolder()
         {
             using (FolderBrowserDialog dialog = new FolderBrowserDialog())
@@ -502,11 +475,51 @@ namespace MedVision.AnnotationViewer
                 if (dialog.ShowDialog(this) == DialogResult.OK)
                 {
                     predFolderText.Text = dialog.SelectedPath;
-                    ReloadCurrentPredictions();
-                    RenderCurrent();
-                    UpdateCurrentStatus();
                 }
             }
+        }
+
+        private void OnPredictionFolderChanged()
+        {
+            UpdatePredictionControlsState();
+            ReloadCurrentPredictions();
+            RenderCurrent();
+            UpdateCurrentStatus();
+        }
+
+        private void UpdatePredictionControlsState()
+        {
+            bool hasPredictionFolder = HasPredictionFolder();
+            if (!hasPredictionFolder)
+            {
+                if (gtOnlyCheckBox.Checked)
+                {
+                    gtOnlyCheckBox.Checked = false;
+                }
+
+                if (errorAnalysisCheckBox.Checked)
+                {
+                    errorAnalysisCheckBox.Checked = false;
+                }
+            }
+
+            iouLabel.Enabled = hasPredictionFolder;
+            iouNumeric.Enabled = hasPredictionFolder;
+            gtOnlyCheckBox.Enabled = hasPredictionFolder;
+            errorAnalysisCheckBox.Enabled = hasPredictionFolder;
+            comparisonStatsButton.Enabled = hasPredictionFolder;
+            exportCompareButton.Enabled = hasPredictionFolder;
+        }
+
+        private bool HasPredictionFolder()
+        {
+            if (string.IsNullOrWhiteSpace(predFolderText.Text))
+            {
+                return false;
+            }
+
+            string predLabelFolder = ResolvePredictionLabelFolder(predFolderText.Text);
+            return !string.IsNullOrEmpty(predLabelFolder) && Directory.Exists(predLabelFolder);
         }
 
         private void ShowAnnotationStats()
