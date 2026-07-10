@@ -15,15 +15,15 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("MedVision annotation visualizer")]
 [assembly: AssemblyCompany("MedVision")]
 [assembly: AssemblyProduct("MedVision Annotation Viewer")]
-[assembly: AssemblyVersion("1.5.2.0")]
-[assembly: AssemblyFileVersion("1.5.2.0")]
-[assembly: AssemblyInformationalVersion("1.5.2")]
+[assembly: AssemblyVersion("1.5.3.0")]
+[assembly: AssemblyFileVersion("1.5.3.0")]
+[assembly: AssemblyInformationalVersion("1.5.3")]
 
 namespace MedVision.AnnotationViewer
 {
     internal static class Program
     {
-        public const string AppVersion = "1.5.2";
+        public const string AppVersion = "1.5.3";
 
         [STAThread]
         private static void Main(string[] args)
@@ -1143,14 +1143,17 @@ namespace MedVision.AnnotationViewer
                 Dictionary<string, int> labelCounts = CountLabelsByClass(record);
                 foreach (KeyValuePair<string, int> item in labelCounts)
                 {
-                    AddCount(stats.LabelCounts, item.Key, item.Value);
+                    LabelAnnotationStats labelStats = stats.GetOrCreateLabelStats(item.Key);
+                    labelStats.ImagePaths.Add(record.ImagePath);
+                    labelStats.AnnotationPaths.Add(record.AnnotationPath);
+                    labelStats.BoxCount += item.Value;
                 }
             }
 
             List<StatsRow> rows = new List<StatsRow>();
             foreach (FolderAnnotationStats stats in folderStats.Values.OrderBy(item => item.FolderName, StringComparer.CurrentCultureIgnoreCase))
             {
-                int totalBoxes = stats.LabelCounts.Values.Sum();
+                int totalBoxes = stats.LabelStats.Values.Sum(item => item.BoxCount);
                 string kinds = string.Join(", ", stats.AnnotationKinds.OrderBy(kind => kind, StringComparer.CurrentCultureIgnoreCase).ToArray());
                 rows.Add(new StatsRow(
                     stats.FolderName,
@@ -1161,17 +1164,17 @@ namespace MedVision.AnnotationViewer
                     totalBoxes,
                     true));
 
-                foreach (KeyValuePair<string, int> labelCount in stats.LabelCounts
-                    .OrderByDescending(item => item.Value)
-                    .ThenBy(item => item.Key, StringComparer.CurrentCultureIgnoreCase))
+                foreach (LabelAnnotationStats labelStats in stats.LabelStats.Values
+                    .OrderByDescending(item => item.BoxCount)
+                    .ThenBy(item => item.LabelName, StringComparer.CurrentCultureIgnoreCase))
                 {
                     rows.Add(new StatsRow(
                         stats.FolderName,
-                        stats.ImagePaths.Count,
-                        stats.AnnotationPaths.Count,
+                        labelStats.ImagePaths.Count,
+                        labelStats.AnnotationPaths.Count,
                         kinds,
-                        labelCount.Key,
-                        labelCount.Value,
+                        labelStats.LabelName,
+                        labelStats.BoxCount,
                         false));
                 }
             }
@@ -2338,7 +2341,7 @@ namespace MedVision.AnnotationViewer
             ImagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             AnnotationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             AnnotationKinds = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
-            LabelCounts = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
+            LabelStats = new Dictionary<string, LabelAnnotationStats>(StringComparer.CurrentCultureIgnoreCase);
         }
 
         public string FolderName { get; private set; }
@@ -2349,7 +2352,37 @@ namespace MedVision.AnnotationViewer
 
         public HashSet<string> AnnotationKinds { get; private set; }
 
-        public Dictionary<string, int> LabelCounts { get; private set; }
+        public Dictionary<string, LabelAnnotationStats> LabelStats { get; private set; }
+
+        public LabelAnnotationStats GetOrCreateLabelStats(string labelName)
+        {
+            LabelAnnotationStats labelStats;
+            if (!LabelStats.TryGetValue(labelName, out labelStats))
+            {
+                labelStats = new LabelAnnotationStats(labelName);
+                LabelStats[labelName] = labelStats;
+            }
+
+            return labelStats;
+        }
+    }
+
+    internal sealed class LabelAnnotationStats
+    {
+        public LabelAnnotationStats(string labelName)
+        {
+            LabelName = labelName;
+            ImagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            AnnotationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public string LabelName { get; private set; }
+
+        public HashSet<string> ImagePaths { get; private set; }
+
+        public HashSet<string> AnnotationPaths { get; private set; }
+
+        public int BoxCount { get; set; }
     }
 
     internal sealed class StatsRow
