@@ -1,4 +1,4 @@
-# MedVision Annotation Viewer
+# Annotation Viewer Tool
 
 用于查看图片标注框，支持 LabelMe JSON 和 YOLO TXT 两种标注格式，并提供标注统计、GT/Pred 对比、错误分析、误差统计和对比图导出。
 
