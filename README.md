@@ -61,3 +61,8 @@ Pred labels 需要是 Ultralytics YOLO txt 格式：
 class_id x_center y_center width height
 class_id x_center y_center width height confidence
 ```
+
+## Contributors
+
+- [CoreyFQR](https://github.com/CoreyFQR)：项目作者与维护者。
+- OpenAI Codex：代码与文档协作。
