@@ -15,15 +15,15 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("MedVision annotation visualizer")]
 [assembly: AssemblyCompany("MedVision")]
 [assembly: AssemblyProduct("MedVision Annotation Viewer")]
-[assembly: AssemblyVersion("1.5.3.0")]
-[assembly: AssemblyFileVersion("1.5.3.0")]
-[assembly: AssemblyInformationalVersion("1.5.3")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyInformationalVersion("1.6.0")]
 
 namespace MedVision.AnnotationViewer
 {
     internal static class Program
     {
-        public const string AppVersion = "1.5.3";
+        public const string AppVersion = "1.6.0";
 
         [STAThread]
         private static void Main(string[] args)
@@ -68,6 +68,8 @@ namespace MedVision.AnnotationViewer
         private readonly Button actualSizeButton = new Button();
         private readonly CheckBox labelsCheckBox = new CheckBox();
         private readonly CheckBox fitCheckBox = new CheckBox();
+        private readonly TextBox searchText = new TextBox();
+        private readonly Button clearSearchButton = new Button();
         private readonly ListBox fileList = new ListBox();
         private readonly ListView annotationList = new ListView();
         private readonly Panel imagePanel = new Panel();
@@ -84,6 +86,7 @@ namespace MedVision.AnnotationViewer
         private readonly Button exportCompareButton = new Button();
 
         private readonly List<ImageRecord> records = new List<ImageRecord>();
+        private readonly List<ImageRecord> visibleRecords = new List<ImageRecord>();
         private Image sourceImage;
         private List<AnnotationShape> currentShapes = new List<AnnotationShape>();
         private List<AnnotationShape> currentPredShapes = new List<AnnotationShape>();
@@ -249,16 +252,39 @@ namespace MedVision.AnnotationViewer
             TableLayoutPanel leftPanel = new TableLayoutPanel();
             leftPanel.Dock = DockStyle.Fill;
             leftPanel.ColumnCount = 1;
-            leftPanel.RowCount = 2;
+            leftPanel.RowCount = 3;
             leftPanel.Padding = new Padding(0, 0, 6, 0);
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 64));
             leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 36));
             mainSplit.Panel1.Controls.Add(leftPanel);
 
+            TableLayoutPanel searchPanel = new TableLayoutPanel();
+            searchPanel.Dock = DockStyle.Fill;
+            searchPanel.ColumnCount = 3;
+            searchPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 76));
+            searchPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            searchPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
+            leftPanel.Controls.Add(searchPanel, 0, 0);
+
+            Label searchLabel = new Label();
+            searchLabel.Dock = DockStyle.Fill;
+            searchLabel.Text = "搜索文件名";
+            searchLabel.TextAlign = ContentAlignment.MiddleLeft;
+            searchPanel.Controls.Add(searchLabel, 0, 0);
+
+            searchText.Dock = DockStyle.Fill;
+            searchPanel.Controls.Add(searchText, 1, 0);
+
+            clearSearchButton.Text = "清空";
+            clearSearchButton.Dock = DockStyle.Fill;
+            clearSearchButton.Enabled = false;
+            searchPanel.Controls.Add(clearSearchButton, 2, 0);
+
             fileList.Dock = DockStyle.Fill;
             fileList.IntegralHeight = false;
             fileList.HorizontalScrollbar = true;
-            leftPanel.Controls.Add(fileList, 0, 0);
+            leftPanel.Controls.Add(fileList, 0, 1);
 
             annotationList.Dock = DockStyle.Fill;
             annotationList.View = View.Details;
@@ -268,7 +294,7 @@ namespace MedVision.AnnotationViewer
             annotationList.Columns.Add("标签", 82);
             annotationList.Columns.Add("类型", 76);
             annotationList.Columns.Add("坐标", 150);
-            leftPanel.Controls.Add(annotationList, 0, 1);
+            leftPanel.Controls.Add(annotationList, 0, 2);
 
             TableLayoutPanel rightPanel = new TableLayoutPanel();
             rightPanel.Dock = DockStyle.Fill;
@@ -330,6 +356,9 @@ namespace MedVision.AnnotationViewer
             browseButton.Click += delegate { BrowseForFolder(); };
             reloadButton.Click += delegate { LoadFolder(folderText.Text); };
             statsButton.Click += delegate { ShowAnnotationStats(); };
+            searchText.TextChanged += delegate { ApplyFileFilter(); };
+            searchText.KeyDown += SearchTextKeyDown;
+            clearSearchButton.Click += delegate { searchText.Clear(); };
             predBrowseButton.Click += delegate { BrowseForPredictionFolder(); };
             predFolderText.TextChanged += delegate { OnPredictionFolderChanged(); };
             comparisonStatsButton.Click += delegate { ShowComparisonStats(); };
@@ -424,6 +453,126 @@ namespace MedVision.AnnotationViewer
                     e.Handled = true;
                 }
             };
+        }
+
+        private void SearchTextKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter && fileList.Items.Count > 0)
+            {
+                fileList.Focus();
+                e.SuppressKeyPress = true;
+            }
+            else if (e.KeyCode == Keys.Escape && searchText.TextLength > 0)
+            {
+                searchText.Clear();
+                e.SuppressKeyPress = true;
+            }
+        }
+
+        private void ApplyFileFilter()
+        {
+            ImageRecord previousRecord = GetSelectedRecord();
+            string searchTerm = searchText.Text.Trim();
+            clearSearchButton.Enabled = searchTerm.Length > 0;
+
+            visibleRecords.Clear();
+            foreach (ImageRecord record in records)
+            {
+                if (MatchesSearch(record, searchTerm))
+                {
+                    visibleRecords.Add(record);
+                }
+            }
+
+            int selectedIndex = previousRecord == null ? -1 : visibleRecords.IndexOf(previousRecord);
+            if (selectedIndex < 0 && visibleRecords.Count > 0)
+            {
+                selectedIndex = 0;
+            }
+
+            changingSelection = true;
+            fileList.BeginUpdate();
+            try
+            {
+                fileList.Items.Clear();
+                foreach (ImageRecord record in visibleRecords)
+                {
+                    fileList.Items.Add(FormatFileListItem(record));
+                }
+
+                fileList.SelectedIndex = selectedIndex;
+            }
+            finally
+            {
+                fileList.EndUpdate();
+                changingSelection = false;
+            }
+
+            UpdateFileInfo();
+            if (selectedIndex >= 0)
+            {
+                LoadSelectedRecord();
+            }
+            else
+            {
+                ClearCurrentImage();
+                annotationList.Items.Clear();
+                if (records.Count > 0)
+                {
+                    SetStatus("没有找到匹配的文件名。可输入图片名或 JSON/TXT 标注文件名的一部分。");
+                }
+            }
+        }
+
+        private static bool MatchesSearch(ImageRecord record, string searchTerm)
+        {
+            if (searchTerm.Length == 0)
+            {
+                return true;
+            }
+
+            return ContainsIgnoreCase(record.DisplayName, searchTerm) ||
+                ContainsIgnoreCase(Path.GetFileName(record.ImagePath), searchTerm) ||
+                ContainsIgnoreCase(Path.GetFileName(record.AnnotationPath), searchTerm) ||
+                ContainsIgnoreCase(record.AnnotationPath, searchTerm);
+        }
+
+        private static bool ContainsIgnoreCase(string value, string searchTerm)
+        {
+            return !string.IsNullOrEmpty(value) &&
+                value.IndexOf(searchTerm, StringComparison.CurrentCultureIgnoreCase) >= 0;
+        }
+
+        private static string FormatFileListItem(ImageRecord record)
+        {
+            return string.Format("{0}  [{1}]  ({2})", record.DisplayName, record.AnnotationKind, record.ShapeCount);
+        }
+
+        private void UpdateFileInfo()
+        {
+            if (searchText.Text.Trim().Length == 0)
+            {
+                int totalBoxes = records.Sum(record => record.ShapeCount);
+                fileInfoLabel.Text = string.Format("{0} 张图 / {1} 个框", records.Count, totalBoxes);
+                return;
+            }
+
+            int visibleBoxes = visibleRecords.Sum(record => record.ShapeCount);
+            fileInfoLabel.Text = string.Format(
+                "筛选 {0}/{1} 张图 / {2} 个框",
+                visibleRecords.Count,
+                records.Count,
+                visibleBoxes);
+        }
+
+        private ImageRecord GetSelectedRecord()
+        {
+            if (fileList.SelectedIndex < 0 || fileList.SelectedIndex >= visibleRecords.Count)
+            {
+                return null;
+            }
+
+            return visibleRecords[fileList.SelectedIndex];
         }
 
         private static string FindDefaultDataFolder()
@@ -959,6 +1108,7 @@ namespace MedVision.AnnotationViewer
         private void LoadFolder(string folder)
         {
             records.Clear();
+            visibleRecords.Clear();
             fileList.Items.Clear();
             annotationList.Items.Clear();
             ClearCurrentImage();
@@ -974,24 +1124,14 @@ namespace MedVision.AnnotationViewer
             {
                 records.AddRange(BuildRecords(folder));
 
-                foreach (ImageRecord record in records)
-                {
-                    fileList.Items.Add(string.Format("{0}  [{1}]  ({2})", record.DisplayName, record.AnnotationKind, record.ShapeCount));
-                }
-
-                int totalBoxes = records.Sum(record => record.ShapeCount);
-                fileInfoLabel.Text = string.Format("{0} 张图 / {1} 个框", records.Count, totalBoxes);
-
                 if (records.Count == 0)
                 {
+                    fileInfoLabel.Text = string.Empty;
                     SetStatus("没有找到图片与 JSON/TXT 标注对。可选择原始 LabelMe 文件夹、YOLO 数据集根目录、split 目录或 images 目录。");
                     return;
                 }
 
-                changingSelection = true;
-                fileList.SelectedIndex = 0;
-                changingSelection = false;
-                LoadSelectedRecord();
+                ApplyFileFilter();
             }
             catch (Exception ex)
             {
@@ -1627,12 +1767,11 @@ namespace MedVision.AnnotationViewer
 
         private void LoadSelectedRecord()
         {
-            if (fileList.SelectedIndex < 0 || fileList.SelectedIndex >= records.Count)
+            ImageRecord record = GetSelectedRecord();
+            if (record == null)
             {
                 return;
             }
-
-            ImageRecord record = records[fileList.SelectedIndex];
 
             try
             {
@@ -1653,7 +1792,7 @@ namespace MedVision.AnnotationViewer
 
                 SetStatus(string.Format("{0}/{1}  {2}  |  {3}  |  {4} 个标注框",
                     fileList.SelectedIndex + 1,
-                    records.Count,
+                    visibleRecords.Count,
                     record.DisplayName,
                     record.AnnotationKind,
                     currentShapes.Count));
@@ -1668,12 +1807,17 @@ namespace MedVision.AnnotationViewer
         private void ReloadCurrentPredictions()
         {
             currentPredShapes = new List<AnnotationShape>();
-            if (sourceImage == null || fileList.SelectedIndex < 0 || fileList.SelectedIndex >= records.Count)
+            if (sourceImage == null)
             {
                 return;
             }
 
-            ImageRecord record = records[fileList.SelectedIndex];
+            ImageRecord record = GetSelectedRecord();
+            if (record == null)
+            {
+                return;
+            }
+
             currentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
         }
 
@@ -1706,12 +1850,11 @@ namespace MedVision.AnnotationViewer
 
         private void UpdateCurrentStatus()
         {
-            if (fileList.SelectedIndex < 0 || fileList.SelectedIndex >= records.Count)
+            ImageRecord record = GetSelectedRecord();
+            if (record == null)
             {
                 return;
             }
-
-            ImageRecord record = records[fileList.SelectedIndex];
             string compareText = string.Empty;
             string predLabelFolder = ResolvePredictionLabelFolder(predFolderText.Text);
             if (!gtOnlyCheckBox.Checked && !string.IsNullOrEmpty(predLabelFolder) && Directory.Exists(predLabelFolder))
@@ -1730,7 +1873,7 @@ namespace MedVision.AnnotationViewer
             SetStatus(string.Format(
                 "{0}/{1}  {2}  |  {3}  |  GT {4}{5}",
                 fileList.SelectedIndex + 1,
-                records.Count,
+                visibleRecords.Count,
                 record.DisplayName,
                 record.AnnotationKind,
                 currentShapes.Count,
@@ -2216,12 +2359,12 @@ namespace MedVision.AnnotationViewer
 
         private void MoveSelection(int direction)
         {
-            if (records.Count == 0)
+            if (visibleRecords.Count == 0)
             {
                 return;
             }
 
-            int next = Math.Max(0, Math.Min(records.Count - 1, fileList.SelectedIndex + direction));
+            int next = Math.Max(0, Math.Min(visibleRecords.Count - 1, fileList.SelectedIndex + direction));
             if (next != fileList.SelectedIndex)
             {
                 fileList.SelectedIndex = next;
