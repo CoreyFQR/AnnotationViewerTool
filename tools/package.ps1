@@ -1,0 +1,33 @@
+﻿$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$root = Split-Path -Parent $PSScriptRoot
+$versionSource = Get-Content -LiteralPath (Join-Path $root 'src\AppInfo.cs') -Raw
+$version = [regex]::Match($versionSource, 'const string Version = "([^"]+)"').Groups[1].Value
+$entries = @(
+    "publish/AnnotationViewerV$version.exe",
+    "publish/AnnotationViewerV$version.exe.config",
+    '启动标注工作台.cmd', 'README.md', 'CHANGELOG.md',
+    'assets/logo.png', 'assets/AnnotationViewer.ico', 'assets/logo-generation.md',
+    'qa/ui-empty.png', 'qa/ui-comparison.png',
+    'qa/ui-selected-annotation.png', 'qa/ui-category-delete.png',
+    'qa/test-results.txt'
+)
+# Real-dataset evidence is optional; preserve it when available on the build machine.
+$entries += @('qa/ui-train.png', 'qa/ui-filename-scrolled.png', 'qa/train-results.txt') |
+    Where-Object { Test-Path -LiteralPath (Join-Path $root $_) }
+foreach ($entry in $entries) {
+    if (-not (Test-Path -LiteralPath (Join-Path $root $entry))) { throw "Missing package input: $entry" }
+}
+$destination = Join-Path $root "MedVision-AnnotationViewer-$version.zip"
+$stream = [System.IO.File]::Create($destination)
+$archive = [System.IO.Compression.ZipArchive]::new($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($entry in $entries) {
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $archive, (Join-Path $root $entry), $entry, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+} finally { $archive.Dispose(); $stream.Dispose() }
+$hash = Get-FileHash -LiteralPath $destination -Algorithm SHA256
+($hash.Hash + '  ' + (Split-Path -Leaf $destination)) | Set-Content -LiteralPath ($destination + '.sha256') -Encoding ascii
+Write-Host "Packaged: $destination"

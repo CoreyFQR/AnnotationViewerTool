@@ -1,8 +1,6 @@
-bin/
-obj/
-publish/
-.vs/
-*.user
-*.suo
-*.userosscache
-*.sln.docstates
+/publish/
+/bin/
+/obj/
+/qa/
+*.zip
+*.zip.sha256
