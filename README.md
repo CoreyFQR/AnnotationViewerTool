@@ -1,6 +1,8 @@
-# Annotation Viewer Tool
+# Annatation Viewer 2.0.1
 
 用于查看图片标注框，支持 LabelMe JSON 和 YOLO TXT 两种标注格式，并提供标注统计、GT/Pred 对比、错误分析、误差统计和对比图导出。
+
+2.0.1 使用全新的显微镜图像标注 logo、PANTONE 蓝色系界面和圆角 IoU 阈值输入框，现有数据格式、快捷键与操作流程保持不变。
 
 LabelMe JSON 可以直接选择图片和同名 JSON 位于同一层的目录：
 
@@ -28,8 +30,8 @@ dataset/
 
 ## 使用
 
-1. 从 GitHub Releases 下载 `AnnotationViewer.exe`。
-2. 双击运行 `AnnotationViewer.exe`。
+1. 从 GitHub Releases 下载 `AnnotationViewerV2.0.1.exe`。
+2. 双击运行 `AnnotationViewerV2.0.1.exe`。
 3. 如果没有自动打开数据，点击“选择文件夹”，选择包含图片和标注的目录。
 4. 左侧选择图片，右侧查看标注框。
 5. 如果需要对比模型预测结果，再在 `Pred labels` 中选择 YOLO 预测 `labels` 文件夹。

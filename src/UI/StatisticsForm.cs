@@ -25,7 +25,7 @@ namespace MedVision.AnnotationViewer
             SuspendLayout();
             this.data = data;
             this.headers = headers;
-            Text = title + " · MedVision " + AppInfo.Version;
+            Text = title + " · Annatation Viewer " + AppInfo.Version;
             Size = new Size(1120, 700);
             MinimumSize = new Size(850, 500);
             StartPosition = FormStartPosition.CenterParent;

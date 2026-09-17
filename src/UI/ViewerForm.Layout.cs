@@ -11,6 +11,8 @@ namespace MedVision.AnnotationViewer
         private readonly Label canvasTitle = Theme.Label("图像预览", 10, Theme.Ink);
         private readonly Label zoomLabel = Theme.Label("—", 9, Theme.Muted);
         private readonly Label annotationCount = Theme.Label("当前标注", 10, Theme.Ink);
+        private readonly Label brandTitle = Theme.Label("Annatation Viewer", 18, Theme.Ink);
+        private readonly Label brandSubtitle = Theme.Label("标注工作台·" + AppInfo.Version, 8, Theme.Muted);
         private readonly Button clearPredButton = new ModernButton();
         private readonly Button cancelWorkButton = new ModernButton();
         private readonly ProgressBar progressBar = new ProgressBar();
@@ -123,10 +125,9 @@ namespace MedVision.AnnotationViewer
             logo.Disposed += delegate { if (logo.Image != null) logo.Image.Dispose(); };
             header.Controls.Add(logo, 0, 0);
             TableLayoutPanel brand = Theme.Rows(30, 22);
-            Label title = Theme.Label("MedVision", 18, Theme.Ink);
-            title.Font = new Font("Segoe UI", 19F, FontStyle.Bold);
-            brand.Controls.Add(title, 0, 0);
-            brand.Controls.Add(Theme.Label("标注工作台  /  ANNOTATION VIEWER   ·   " + AppInfo.Version, 8, Theme.Muted), 0, 1);
+            brandTitle.Font = new Font("Segoe UI", 19F, FontStyle.Bold);
+            brand.Controls.Add(brandTitle, 0, 0);
+            brand.Controls.Add(brandSubtitle, 0, 1);
             header.Controls.Add(brand, 1, 0);
             Theme.Button(statsButton, "标注统计", false);
             Theme.Button(exportCompareButton, "导出对比图", true);
@@ -276,20 +277,19 @@ namespace MedVision.AnnotationViewer
             inspector.Controls.Add(predButtons, 0, 3);
             TableLayoutPanel threshold = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             threshold.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            threshold.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
+            threshold.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104));
             iouLabel.Text = "IoU 匹配阈值";
             iouLabel.Dock = DockStyle.Fill;
             iouLabel.TextAlign = ContentAlignment.MiddleLeft;
             iouLabel.ForeColor = Theme.Muted;
-            iouNumeric.Dock = DockStyle.Fill;
             iouNumeric.DecimalPlaces = 2;
             iouNumeric.Minimum = 0.01M;
             iouNumeric.Maximum = 1M;
             iouNumeric.Increment = 0.05M;
             iouNumeric.Value = 0.5M;
-            iouNumeric.Margin = Padding.Empty;
+            iouNumeric.AccessibleName = "IoU 匹配阈值";
             threshold.Controls.Add(iouLabel, 0, 0);
-            threshold.Controls.Add(iouNumeric, 1, 0);
+            threshold.Controls.Add(new NumericField(iouNumeric), 1, 0);
             inspector.Controls.Add(threshold, 0, 4);
             FlowLayoutPanel options = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             gtOnlyCheckBox.Text = "仅显示 GT";
@@ -341,7 +341,7 @@ namespace MedVision.AnnotationViewer
         {
             SplitContainer split = (SplitContainer)sender;
             Rectangle bounds = split.SplitterRectangle;
-            using (Brush brush = new SolidBrush(Color.FromArgb(169, 185, 197)))
+            using (Brush brush = new SolidBrush(Theme.Divider))
                 for (int i = -1; i <= 1; i++) e.Graphics.FillEllipse(brush,
                     bounds.Left + bounds.Width / 2 - 1, bounds.Top + bounds.Height / 2 + i * 7, 3, 3);
         }

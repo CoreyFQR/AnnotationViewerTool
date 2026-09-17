@@ -52,8 +52,8 @@ namespace MedVision.AnnotationViewer
             e.Graphics.Clear(Parent == null ? Theme.Background : Parent.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Color fill = !Enabled ? Theme.Disabled : Primary ?
-                (pressed ? Color.FromArgb(0, 96, 91) : hovered ? Color.FromArgb(0, 117, 110) : Theme.Accent) :
-                (pressed ? Color.FromArgb(210, 235, 231) : hovered ? Theme.SoftAccent : Color.White);
+                (pressed ? Theme.AccentPressed : hovered ? Theme.AccentHover : Theme.Accent) :
+                (pressed ? Color.FromArgb(214, 234, 247) : hovered ? Theme.SoftAccent : Color.White);
             using (GraphicsPath shape = ControlGeometry.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 8 * dpi))
             using (Brush background = new SolidBrush(fill))
             using (Pen border = new Pen(!Enabled ? Theme.Border : Primary ? fill : Theme.Border, dpi))
@@ -105,7 +105,7 @@ namespace MedVision.AnnotationViewer
             float dpi = e.Graphics.DpiX / 96F;
             float height = 20 * dpi;
             RectangleF track = new RectangleF(1, (Height - height) / 2, 36 * dpi, height);
-            Color fill = !Enabled ? Theme.Disabled : Checked ? Theme.Accent : Color.FromArgb(183, 197, 207);
+            Color fill = !Enabled ? Theme.Disabled : Checked ? Theme.Accent : Theme.SwitchOff;
             using (GraphicsPath shape = ControlGeometry.Rounded(track, height / 2))
             using (Brush brush = new SolidBrush(fill)) e.Graphics.FillPath(brush, shape);
             float knob = height - 4 * dpi;
@@ -163,6 +163,129 @@ namespace MedVision.AnnotationViewer
             {
                 e.Graphics.FillPath(Brushes.White, outline);
                 e.Graphics.DrawPath(pen, outline);
+            }
+        }
+    }
+
+    internal sealed class NumericField : Panel
+    {
+        private readonly NumericUpDown editor;
+        private int hoveredSpin;
+
+        public NumericField(NumericUpDown editor)
+        {
+            this.editor = editor;
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+            Dock = DockStyle.Fill;
+            Margin = new Padding(3, 2, 0, 2);
+            BackColor = Color.White;
+            editor.BorderStyle = BorderStyle.None;
+            editor.BackColor = BackColor;
+            editor.ForeColor = Theme.Ink;
+            editor.TextAlign = HorizontalAlignment.Center;
+            editor.Margin = Padding.Empty;
+            Controls.Add(editor);
+            HideNativeButtons();
+            editor.GotFocus += delegate { Invalidate(); };
+            editor.LostFocus += delegate { Invalidate(); };
+            editor.ValueChanged += delegate { Invalidate(); };
+            Click += delegate { editor.Focus(); };
+        }
+
+        private int SpinWidth { get { return Math.Max(26, Height - 2); } }
+
+        private void HideNativeButtons()
+        {
+            foreach (Control child in editor.Controls)
+                if (child.GetType().Name.IndexOf("Buttons", StringComparison.OrdinalIgnoreCase) >= 0)
+                    child.Visible = false;
+        }
+
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            base.OnLayout(e);
+            if (editor == null) return;
+            using (Graphics g = CreateGraphics())
+            {
+                int horizontal = (int)(9 * g.DpiX / 96F);
+                editor.SetBounds(horizontal, Math.Max(0, (ClientSize.Height - editor.PreferredHeight) / 2),
+                    Math.Max(1, ClientSize.Width - horizontal - SpinWidth - 2), editor.PreferredHeight);
+                HideNativeButtons();
+                foreach (Control child in editor.Controls)
+                    if (child.Visible) child.SetBounds(0, 0, editor.Width, editor.Height);
+            }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            int next = e.X >= Width - SpinWidth ? (e.Y < Height / 2 ? 1 : -1) : 0;
+            if (hoveredSpin != next) { hoveredSpin = next; Invalidate(); }
+            Cursor = next == 0 ? Cursors.Default : Cursors.Hand;
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            hoveredSpin = 0;
+            Cursor = Cursors.Default;
+            Invalidate();
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && e.X >= Width - SpinWidth)
+            {
+                editor.Focus();
+                decimal change = e.Y < Height / 2 ? editor.Increment : -editor.Increment;
+                editor.Value = Math.Max(editor.Minimum, Math.Min(editor.Maximum, editor.Value + change));
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.Clear(Parent == null ? Color.White : Parent.BackColor);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            float dpi = e.Graphics.DpiX / 96F;
+            Color border = editor.Focused ? Theme.Accent : Theme.Border;
+            int spinLeft = Width - SpinWidth;
+            using (GraphicsPath outline = ControlGeometry.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 8 * dpi))
+            using (Brush fill = new SolidBrush(editor.Enabled ? Color.White : Theme.Disabled))
+            using (Pen pen = new Pen(border, editor.Focused ? 1.5F * dpi : dpi))
+            {
+                e.Graphics.FillPath(fill, outline);
+                if (editor.Enabled && hoveredSpin != 0)
+                {
+                    GraphicsState state = e.Graphics.Save();
+                    e.Graphics.SetClip(outline);
+                    using (Brush hover = new SolidBrush(Theme.SoftAccent))
+                        e.Graphics.FillRectangle(hover, spinLeft, hoveredSpin > 0 ? 1 : Height / 2,
+                            SpinWidth, Height / 2);
+                    e.Graphics.Restore(state);
+                }
+                using (Pen divider = new Pen(Theme.Border, dpi))
+                {
+                    e.Graphics.DrawLine(divider, spinLeft, 5 * dpi, spinLeft, Height - 5 * dpi);
+                    e.Graphics.DrawLine(divider, spinLeft + 5 * dpi, Height / 2F,
+                        Width - 5 * dpi, Height / 2F);
+                }
+                e.Graphics.DrawPath(pen, outline);
+            }
+            float centerX = spinLeft + SpinWidth / 2F;
+            using (Pen arrow = new Pen(editor.Enabled ? Theme.Accent : Theme.Muted, 1.6F * dpi))
+            {
+                arrow.StartCap = LineCap.Round;
+                arrow.EndCap = LineCap.Round;
+                float offset = 3 * dpi;
+                float upper = Height * 0.27F;
+                float lower = Height * 0.73F;
+                e.Graphics.DrawLines(arrow, new[] { new PointF(centerX - offset, upper + offset / 2),
+                    new PointF(centerX, upper - offset / 2), new PointF(centerX + offset, upper + offset / 2) });
+                e.Graphics.DrawLines(arrow, new[] { new PointF(centerX - offset, lower - offset / 2),
+                    new PointF(centerX, lower + offset / 2), new PointF(centerX + offset, lower - offset / 2) });
             }
         }
     }

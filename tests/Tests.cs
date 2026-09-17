@@ -63,7 +63,7 @@ namespace MedVision.AnnotationViewer
                     Application.Run(form);
                 }
                 if (failure != null) throw failure;
-                string report = "MedVision 2.0.0: " + checks + " checks passed.\n" + DateTime.Now.ToString("s");
+                string report = "Annatation Viewer 2.0.1: " + checks + " checks passed.\n" + DateTime.Now.ToString("s");
                 File.WriteAllText(Path.Combine(qa, "test-results.txt"), report);
                 Console.WriteLine(report);
                 return 0;
@@ -168,7 +168,10 @@ namespace MedVision.AnnotationViewer
                 Check(access.CanWrite, "viewer releases source image file lock");
             using (StatisticsForm dialog = StatisticsForm.Annotations(stats, dataset)) SaveForm(dialog, "statistics.png");
             using (StatisticsForm dialog = StatisticsForm.Comparison(comparisons, dataset, predictions, 0.5F)) SaveForm(dialog, "comparison-statistics.png");
-            Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == "2.0.0.0", "assembly version is 2.0.0");
+            Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == "2.0.1.0", "assembly version is 2.0.1");
+            using (Stream logoStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MedVision.logo.png"))
+            using (Image logo = logoStream == null ? null : Image.FromStream(logoStream))
+                Check(logo != null && logo.Width == 1254 && logo.Height == 1254, "2.0.1 microscope logo is embedded at source resolution");
             string nested = Path.Combine(qa, "nested");
             Directory.CreateDirectory(Path.Combine(nested, "images", "val"));
             Directory.CreateDirectory(Path.Combine(nested, "labels", "val"));
@@ -232,6 +235,11 @@ namespace MedVision.AnnotationViewer
 
         private static async Task TestUi(ViewerForm form)
         {
+            Check(form.Text == "Annatation Viewer · 标注工作台 · 2.0.1", "window title uses the 2.0.1 product name");
+            Check(Field<Label>(form, "brandTitle").Text == "Annatation Viewer", "header title matches product name");
+            Check(Field<Label>(form, "brandSubtitle").Text == "标注工作台·2.0.1", "header subtitle includes the 2.0.1 version");
+            Check(Theme.Accent.ToArgb() == Color.FromArgb(0, 76, 151).ToArgb() &&
+                Theme.Canvas.ToArgb() == Color.FromArgb(0, 35, 70).ToArgb(), "Pantone blue theme palette is active");
             CheckEmptyCenter(form);
             form.Size = new Size(1800, 1120);
             await Task.Delay(30);
@@ -271,7 +279,17 @@ namespace MedVision.AnnotationViewer
             Check(keyboardToggle.Checked, "switch responds to Space key");
             keyboardToggle.Checked = false;
             NumericUpDown numeric = Field<NumericUpDown>(form, "iouNumeric");
-            Check(numeric.Parent.ClientRectangle.Contains(numeric.Bounds) && numeric.Width > 55, "IoU editor stays inside its row at system DPI");
+            Check(numeric.Parent is NumericField && numeric.BorderStyle == BorderStyle.None &&
+                numeric.Parent.ClientRectangle.Contains(numeric.Bounds) && numeric.Width > 55,
+                "IoU editor uses the modern rounded field and stays inside its row at system DPI");
+            decimal previousIou = numeric.Value;
+            Control numericField = numeric.Parent;
+            numericField.GetType().GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(
+                numericField, new object[] { new MouseEventArgs(MouseButtons.Left, 1, numericField.Width - 4, 4, 0) });
+            Check(numeric.Value == previousIou + numeric.Increment, "modern IoU stepper increases the threshold");
+            numericField.GetType().GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(
+                numericField, new object[] { new MouseEventArgs(MouseButtons.Left, 1, numericField.Width - 4, numericField.Height - 4, 0) });
+            Check(numeric.Value == previousIou, "modern IoU stepper decreases the threshold");
             Field<CheckBox>(form, "errorAnalysisCheckBox").Checked = true;
             SaveForm(form, "ui-comparison.png");
             Field<CheckBox>(form, "gtOnlyCheckBox").Checked = true;
@@ -372,7 +390,7 @@ namespace MedVision.AnnotationViewer
             {
                 panel.DrawToBitmap(bitmap, panel.ClientRectangle);
                 int left = bitmap.Width, right = -1, top = bitmap.Height, bottom = -1;
-                int color = Color.FromArgb(61, 102, 114).ToArgb();
+                int color = Theme.CanvasGlyph.ToArgb();
                 for (int y = 0; y < bitmap.Height; y++)
                     for (int x = 0; x < bitmap.Width; x++)
                         if (bitmap.GetPixel(x, y).ToArgb() == color)

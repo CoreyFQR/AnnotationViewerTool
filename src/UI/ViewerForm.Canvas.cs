@@ -82,7 +82,7 @@ namespace MedVision.AnnotationViewer
             g.SmoothingMode = SmoothingMode.AntiAlias;
             int cx = imagePanel.ClientSize.Width / 2;
             int cy = imagePanel.ClientSize.Height / 2;
-            using (Pen frame = new Pen(Color.FromArgb(61, 102, 114), 3))
+            using (Pen frame = new Pen(Theme.CanvasGlyph, 3))
             {
                 g.DrawLine(frame, cx - 30, cy - 30, cx - 30, cy - 10);
                 g.DrawLine(frame, cx - 30, cy - 30, cx - 10, cy - 30);

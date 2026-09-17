@@ -5,14 +5,20 @@ namespace MedVision.AnnotationViewer
 {
     internal static class Theme
     {
-        public static readonly Color Background = Color.FromArgb(241, 245, 248);
-        public static readonly Color Ink = Color.FromArgb(28, 44, 61);
-        public static readonly Color Muted = Color.FromArgb(111, 127, 144);
-        public static readonly Color Accent = Color.FromArgb(0, 132, 124);
-        public static readonly Color SoftAccent = Color.FromArgb(227, 245, 241);
-        public static readonly Color Border = Color.FromArgb(223, 231, 237);
-        public static readonly Color Disabled = Color.FromArgb(235, 240, 243);
-        public static readonly Color Canvas = Color.FromArgb(20, 30, 43);
+        // Screen approximations of PANTONE 294 C, 2945 C and 2905 C.
+        public static readonly Color Background = Color.FromArgb(244, 248, 252);
+        public static readonly Color Ink = Color.FromArgb(18, 47, 76);
+        public static readonly Color Muted = Color.FromArgb(92, 116, 140);
+        public static readonly Color Accent = Color.FromArgb(0, 76, 151);
+        public static readonly Color AccentHover = Color.FromArgb(0, 87, 184);
+        public static readonly Color AccentPressed = Color.FromArgb(0, 47, 108);
+        public static readonly Color SoftAccent = Color.FromArgb(229, 243, 250);
+        public static readonly Color Border = Color.FromArgb(207, 221, 233);
+        public static readonly Color Disabled = Color.FromArgb(233, 240, 246);
+        public static readonly Color Canvas = Color.FromArgb(0, 35, 70);
+        public static readonly Color CanvasGlyph = Color.FromArgb(141, 200, 232);
+        public static readonly Color SwitchOff = Color.FromArgb(159, 178, 195);
+        public static readonly Color Divider = Color.FromArgb(145, 166, 185);
 
         public static Label Label(string text, float size, Color color)
         {
@@ -30,7 +36,7 @@ namespace MedVision.AnnotationViewer
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = primary ? 0 : 1;
             button.FlatAppearance.BorderColor = Border;
-            button.FlatAppearance.MouseOverBackColor = primary ? Color.FromArgb(0, 112, 106) : SoftAccent;
+            button.FlatAppearance.MouseOverBackColor = primary ? AccentHover : SoftAccent;
             button.BackColor = primary ? Accent : Color.White;
             button.ForeColor = primary ? Color.White : Ink;
             button.Cursor = Cursors.Hand;

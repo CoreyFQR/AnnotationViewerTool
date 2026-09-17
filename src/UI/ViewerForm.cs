@@ -57,7 +57,7 @@ namespace MedVision.AnnotationViewer
         public ViewerForm()
         {
             SuspendLayout();
-            Text = "MedVision · 标注工作台  " + AppInfo.Version;
+            Text = "Annatation Viewer · 标注工作台 · " + AppInfo.Version;
             Size = new Size(1500, 940);
             MinimumSize = new Size(1120, 720);
             StartPosition = FormStartPosition.CenterScreen;

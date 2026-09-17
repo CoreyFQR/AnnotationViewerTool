@@ -8,7 +8,7 @@ $entries = @(
     "publish/AnnotationViewerV$version.exe",
     "publish/AnnotationViewerV$version.exe.config",
     '启动标注工作台.cmd', 'README.md', 'CHANGELOG.md',
-    'assets/logo.png', 'assets/AnnotationViewer.ico', 'assets/logo-generation.md',
+    'assets/logo.png', 'assets/AnnotationViewer.ico',
     'qa/ui-empty.png', 'qa/ui-comparison.png',
     'qa/ui-selected-annotation.png', 'qa/ui-category-delete.png',
     'qa/test-results.txt'
