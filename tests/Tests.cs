@@ -171,7 +171,12 @@ namespace MedVision.AnnotationViewer
             Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == "2.0.1.0", "assembly version is 2.0.1");
             using (Stream logoStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MedVision.logo.png"))
             using (Image logo = logoStream == null ? null : Image.FromStream(logoStream))
+            {
                 Check(logo != null && logo.Width == 1254 && logo.Height == 1254, "2.0.1 microscope logo is embedded at source resolution");
+                using (Bitmap roundedLogo = new Bitmap(logo))
+                    Check(roundedLogo.GetPixel(0, 0).A == 0 && roundedLogo.GetPixel(roundedLogo.Width / 2,
+                        roundedLogo.Height / 2).A == 255, "embedded logo has transparent rounded corners");
+            }
             string nested = Path.Combine(qa, "nested");
             Directory.CreateDirectory(Path.Combine(nested, "images", "val"));
             Directory.CreateDirectory(Path.Combine(nested, "labels", "val"));
