@@ -24,9 +24,9 @@ namespace MedVision.AnnotationViewer
                 foreach (string image in Directory.EnumerateFiles(current).Where(IsImageFile))
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    string annotation = FindAnnotation(image);
+                    string annotation = FindAnnotation(image, root);
                     if (annotation == null) continue;
-                    string classesFile = FindClassesFile(current) ?? string.Empty;
+                    string classesFile = FindClassesFile(current) ?? FindClassesFile(Path.GetDirectoryName(annotation)) ?? string.Empty;
                     Dictionary<int, string> names;
                     if (!classCache.TryGetValue(classesFile, out names))
                     {
@@ -44,7 +44,7 @@ namespace MedVision.AnnotationViewer
             return result.OrderBy(record => record.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
 
-        private static string FindAnnotation(string image)
+        private static string FindAnnotation(string image, string root)
         {
             string json = Path.ChangeExtension(image, ".json");
             if (File.Exists(json)) return json;
@@ -61,8 +61,29 @@ namespace MedVision.AnnotationViewer
                     string labelJson = Path.ChangeExtension(labelBase, ".json");
                     if (File.Exists(labelJson)) return labelJson;
                     string labelText = Path.ChangeExtension(labelBase, ".txt");
-                    return File.Exists(labelText) ? labelText : null;
+                    if (File.Exists(labelText)) return labelText;
                 }
+                current = current.Parent;
+            }
+            // Also accept arbitrary image-folder names with sibling annotation folders.
+            // Preserve relative subdirectories, never guess by basename across different splits.
+            current = new DirectoryInfo(Path.GetDirectoryName(image));
+            string boundary = new DirectoryInfo(root).Parent == null ? root : new DirectoryInfo(root).Parent.FullName;
+            while (current != null && current.Parent != null &&
+                !string.Equals(current.FullName, boundary, StringComparison.OrdinalIgnoreCase))
+            {
+                string relative = image.Substring(current.FullName.TrimEnd(Path.DirectorySeparatorChar).Length + 1);
+                var matches = new List<string>();
+                foreach (string name in new[] { "labels", "annotations", "annotation", "标注", "标签", "json", "txt" })
+                {
+                    string candidate = Path.Combine(current.Parent.FullName, name, relative);
+                    string candidateJson = Path.ChangeExtension(candidate, ".json");
+                    string candidateText = Path.ChangeExtension(candidate, ".txt");
+                    if (File.Exists(candidateJson)) matches.Add(candidateJson);
+                    else if (File.Exists(candidateText)) matches.Add(candidateText);
+                }
+                if (matches.Count > 1) throw new InvalidDataException("图片存在多个相邻标注目录，无法确定配对：" + image + " → " + string.Join("、", matches));
+                if (matches.Count == 1) return matches[0];
                 current = current.Parent;
             }
             return null;

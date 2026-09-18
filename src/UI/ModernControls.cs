@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -26,6 +26,13 @@ namespace MedVision.AnnotationViewer
         private bool hovered;
         private bool pressed;
         public bool Primary { get; set; }
+        public bool Borderless { get; set; }
+        private bool isChecked;
+        public bool Checked
+        {
+            get { return isChecked; }
+            set { isChecked = value; AccessibleDescription = value ? "已开启" : "已关闭"; Invalidate(); }
+        }
 
         public ModernButton()
         {
@@ -49,17 +56,17 @@ namespace MedVision.AnnotationViewer
         protected override void OnPaint(PaintEventArgs e)
         {
             float dpi = e.Graphics.DpiX / 96F;
-            e.Graphics.Clear(Parent == null ? Theme.Background : Parent.BackColor);
+            e.Graphics.Clear(Parent == null ? Theme.Background : Parent.BackColor.A == 0 ? Color.White : Parent.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Color fill = !Enabled ? Theme.Disabled : Primary ?
                 (pressed ? Theme.AccentPressed : hovered ? Theme.AccentHover : Theme.Accent) :
-                (pressed ? Color.FromArgb(214, 234, 247) : hovered ? Theme.SoftAccent : Color.White);
+                (pressed ? Color.FromArgb(214, 234, 247) : hovered ? Theme.SoftAccent : Borderless && Parent != null ? Parent.BackColor : Color.White);
             using (GraphicsPath shape = ControlGeometry.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 8 * dpi))
             using (Brush background = new SolidBrush(fill))
             using (Pen border = new Pen(!Enabled ? Theme.Border : Primary ? fill : Theme.Border, dpi))
             {
                 e.Graphics.FillPath(background, shape);
-                e.Graphics.DrawPath(border, shape);
+                if (!Borderless) e.Graphics.DrawPath(border, shape);
             }
             Color ink = !Enabled ? Theme.Muted : Primary ? Color.White : Theme.Ink;
             TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ink,
@@ -100,7 +107,7 @@ namespace MedVision.AnnotationViewer
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            e.Graphics.Clear(Parent == null ? Color.White : Parent.BackColor);
+            e.Graphics.Clear(Parent == null || Parent.BackColor.A == 0 ? Color.White : Parent.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             float dpi = e.Graphics.DpiX / 96F;
             float height = 20 * dpi;
@@ -155,7 +162,7 @@ namespace MedVision.AnnotationViewer
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            e.Graphics.Clear(Parent == null ? Color.White : Parent.BackColor);
+            e.Graphics.Clear(Parent == null || Parent.BackColor.A == 0 ? Color.White : Parent.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             float dpi = e.Graphics.DpiX / 96F;
             using (GraphicsPath outline = ControlGeometry.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 8 * dpi))
@@ -167,129 +174,193 @@ namespace MedVision.AnnotationViewer
         }
     }
 
+    // Keep NumericUpDown as the value/range model; only borderless text and modern buttons are visible.
     internal sealed class NumericField : Panel
     {
-        private readonly NumericUpDown editor;
-        private int hoveredSpin;
+        private readonly NumericUpDown model;
+        internal readonly TextBox Input = new TextBox();
+        internal readonly ModernButton Decrease = new ModernButton();
+        internal readonly ModernButton Increase = new ModernButton();
+        private bool syncing;
+        private bool updatingValue;
 
-        public NumericField(NumericUpDown editor)
+        public NumericField(NumericUpDown model)
         {
-            this.editor = editor;
-            DoubleBuffered = true;
-            ResizeRedraw = true;
+            this.model = model;
+            DoubleBuffered = ResizeRedraw = true;
             Dock = DockStyle.Fill;
             Margin = new Padding(3, 2, 0, 2);
             BackColor = Color.White;
-            editor.BorderStyle = BorderStyle.None;
-            editor.BackColor = BackColor;
-            editor.ForeColor = Theme.Ink;
-            editor.TextAlign = HorizontalAlignment.Center;
-            editor.Margin = Padding.Empty;
-            Controls.Add(editor);
-            HideNativeButtons();
-            editor.GotFocus += delegate { Invalidate(); };
-            editor.LostFocus += delegate { Invalidate(); };
-            editor.ValueChanged += delegate { Invalidate(); };
-            Click += delegate { editor.Focus(); };
+            model.Visible = false;
+            model.TabStop = false;
+            Controls.Add(model);
+            Input.BorderStyle = BorderStyle.None;
+            Input.TextAlign = HorizontalAlignment.Center;
+            Input.ForeColor = Theme.Ink;
+            Input.AccessibleName = model.AccessibleName;
+            Theme.Button(Decrease, "−", false);
+            Theme.Button(Increase, "+", false);
+            Decrease.Borderless = Increase.Borderless = true;
+            Input.Margin = Decrease.Margin = Increase.Margin = Padding.Empty;
+            Decrease.AccessibleName = "减小 IoU 匹配阈值";
+            Increase.AccessibleName = "增大 IoU 匹配阈值";
+            Controls.Add(Input); Controls.Add(Decrease); Controls.Add(Increase);
+            Decrease.Click += delegate { Step(-1); };
+            Increase.Click += delegate { Step(1); };
+            Input.TextChanged += delegate {
+                decimal value;
+                if (!syncing && decimal.TryParse(Input.Text, out value) && value >= model.Minimum && value <= model.Maximum)
+                {
+                    updatingValue = true;
+                    try { model.Value = value; } finally { updatingValue = false; }
+                }
+            };
+            Input.Leave += delegate { CommitText(); Sync(); };
+            Input.KeyDown += delegate(object sender, KeyEventArgs e) {
+                if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down) { Step(e.KeyCode == Keys.Up ? 1 : -1); e.SuppressKeyPress = true; }
+                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Escape) { if (e.KeyCode == Keys.Enter) CommitText(); Sync(); e.SuppressKeyPress = true; }
+            };
+            Input.MouseWheel += delegate(object sender, MouseEventArgs e) { Step(e.Delta > 0 ? 1 : -1); };
+            Input.GotFocus += delegate { Invalidate(); };
+            Input.LostFocus += delegate { Invalidate(); };
+            model.ValueChanged += delegate { if (!updatingValue) Sync(); };
+            model.EnabledChanged += delegate { Sync(); };
+            Sync();
         }
 
-        private int SpinWidth { get { return Math.Max(26, Height - 2); } }
-
-        private void HideNativeButtons()
+        private void CommitText()
         {
-            foreach (Control child in editor.Controls)
-                if (child.GetType().Name.IndexOf("Buttons", StringComparison.OrdinalIgnoreCase) >= 0)
-                    child.Visible = false;
+            decimal value;
+            if (decimal.TryParse(Input.Text, out value)) model.Value = Math.Max(model.Minimum, Math.Min(model.Maximum, value));
         }
-
+        private void Step(int direction)
+        {
+            if (!model.Enabled) return;
+            CommitText();
+            model.Value = Math.Max(model.Minimum, Math.Min(model.Maximum, model.Value + direction * model.Increment));
+            Sync();
+        }
+        private void Sync()
+        {
+            syncing = true;
+            Input.Text = model.Value.ToString("F" + model.DecimalPlaces);
+            Input.Enabled = Decrease.Enabled = Increase.Enabled = model.Enabled;
+            Input.BackColor = model.Enabled ? Color.White : Theme.Disabled;
+            BackColor = Input.BackColor;
+            syncing = false;
+            Invalidate();
+        }
         protected override void OnLayout(LayoutEventArgs e)
         {
             base.OnLayout(e);
-            if (editor == null) return;
+            if (Input == null) return;
             using (Graphics g = CreateGraphics())
             {
-                int horizontal = (int)(9 * g.DpiX / 96F);
-                editor.SetBounds(horizontal, Math.Max(0, (ClientSize.Height - editor.PreferredHeight) / 2),
-                    Math.Max(1, ClientSize.Width - horizontal - SpinWidth - 2), editor.PreferredHeight);
-                HideNativeButtons();
-                foreach (Control child in editor.Controls)
-                    if (child.Visible) child.SetBounds(0, 0, editor.Width, editor.Height);
+                float dpi = g.DpiX / 96F;
+                int inset = (int)Math.Ceiling(6 * dpi);
+                int side = (int)(24 * dpi);
+                int gap = (int)(2 * dpi);
+                Decrease.SetBounds(inset, inset, side, Math.Max(1, Height - inset * 2));
+                Increase.SetBounds(Width - side - inset, inset, side, Math.Max(1, Height - inset * 2));
+                Input.SetBounds(inset + side + gap, Math.Max(0, (Height - Input.PreferredHeight) / 2),
+                    Math.Max(1, Width - 2 * (inset + side + gap)), Input.PreferredHeight);
             }
         }
-
-        protected override void OnMouseMove(MouseEventArgs e)
-        {
-            int next = e.X >= Width - SpinWidth ? (e.Y < Height / 2 ? 1 : -1) : 0;
-            if (hoveredSpin != next) { hoveredSpin = next; Invalidate(); }
-            Cursor = next == 0 ? Cursors.Default : Cursors.Hand;
-            base.OnMouseMove(e);
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            hoveredSpin = 0;
-            Cursor = Cursors.Default;
-            Invalidate();
-            base.OnMouseLeave(e);
-        }
-
-        protected override void OnMouseDown(MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left && e.X >= Width - SpinWidth)
-            {
-                editor.Focus();
-                decimal change = e.Y < Height / 2 ? editor.Increment : -editor.Increment;
-                editor.Value = Math.Max(editor.Minimum, Math.Min(editor.Maximum, editor.Value + change));
-            }
-            base.OnMouseDown(e);
-        }
-
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            e.Graphics.Clear(Parent == null ? Color.White : Parent.BackColor);
+            e.Graphics.Clear(Parent == null || Parent.BackColor.A == 0 ? Color.White : Parent.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             float dpi = e.Graphics.DpiX / 96F;
-            Color border = editor.Focused ? Theme.Accent : Theme.Border;
-            int spinLeft = Width - SpinWidth;
-            using (GraphicsPath outline = ControlGeometry.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 8 * dpi))
-            using (Brush fill = new SolidBrush(editor.Enabled ? Color.White : Theme.Disabled))
-            using (Pen pen = new Pen(border, editor.Focused ? 1.5F * dpi : dpi))
-            {
-                e.Graphics.FillPath(fill, outline);
-                if (editor.Enabled && hoveredSpin != 0)
-                {
-                    GraphicsState state = e.Graphics.Save();
-                    e.Graphics.SetClip(outline);
-                    using (Brush hover = new SolidBrush(Theme.SoftAccent))
-                        e.Graphics.FillRectangle(hover, spinLeft, hoveredSpin > 0 ? 1 : Height / 2,
-                            SpinWidth, Height / 2);
-                    e.Graphics.Restore(state);
-                }
-                using (Pen divider = new Pen(Theme.Border, dpi))
-                {
-                    e.Graphics.DrawLine(divider, spinLeft, 5 * dpi, spinLeft, Height - 5 * dpi);
-                    e.Graphics.DrawLine(divider, spinLeft + 5 * dpi, Height / 2F,
-                        Width - 5 * dpi, Height / 2F);
-                }
-                e.Graphics.DrawPath(pen, outline);
-            }
-            float centerX = spinLeft + SpinWidth / 2F;
-            using (Pen arrow = new Pen(editor.Enabled ? Theme.Accent : Theme.Muted, 1.6F * dpi))
-            {
-                arrow.StartCap = LineCap.Round;
-                arrow.EndCap = LineCap.Round;
-                float offset = 3 * dpi;
-                float upper = Height * 0.27F;
-                float lower = Height * 0.73F;
-                e.Graphics.DrawLines(arrow, new[] { new PointF(centerX - offset, upper + offset / 2),
-                    new PointF(centerX, upper - offset / 2), new PointF(centerX + offset, upper + offset / 2) });
-                e.Graphics.DrawLines(arrow, new[] { new PointF(centerX - offset, lower - offset / 2),
-                    new PointF(centerX, lower + offset / 2), new PointF(centerX + offset, lower - offset / 2) });
-            }
+            using (GraphicsPath shape = ControlGeometry.Rounded(new RectangleF(1, 1, Width - 2, Height - 2), 8 * dpi))
+            using (Brush fill = new SolidBrush(model.Enabled ? Color.White : Theme.Disabled))
+            using (Pen border = new Pen(ContainsFocus ? Theme.Accent : Theme.Border, dpi))
+            { e.Graphics.FillPath(fill, shape); e.Graphics.DrawPath(border, shape); }
         }
     }
 
+    // Use the same text rendering and disabled ink as the comparison switches.
+    internal sealed class OptionLabel : Label
+    {
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, Enabled ? Theme.Ink : Theme.Muted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+        }
+    }
+
+    internal sealed class RoundedCard : Panel
+    {
+        public RoundedCard(Control content)
+        {
+            DoubleBuffered = ResizeRedraw = true;
+            Dock = DockStyle.Fill;
+            Margin = Padding.Empty;
+            BackColor = Theme.Background;
+            Controls.Add(content);
+        }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            base.OnPaintBackground(e);
+            if (Width < 2 || Height < 2) return;
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath outline = ControlGeometry.Rounded(new RectangleF(0, 0, Width, Height), 14 * e.Graphics.DpiX / 96F))
+                e.Graphics.FillPath(Brushes.White, outline);
+        }
+    }
+
+    internal sealed class ModernAnnotationList : ListView
+    {
+        private readonly ImageList rowHeight = new ImageList();
+        private bool scaledColumns;
+        public ModernAnnotationList()
+        {
+            DoubleBuffered = true;
+            OwnerDraw = true;
+            HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            GridLines = false;
+            ShowItemToolTips = true;
+            rowHeight.ImageSize = new Size(1, 34);
+            SmallImageList = rowHeight;
+        }
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            using (Graphics g = CreateGraphics()) rowHeight.ImageSize = new Size(1, (int)(34 * g.DpiY / 96F));
+            if (!scaledColumns)
+            {
+                using (Graphics g = CreateGraphics())
+                    foreach (ColumnHeader column in Columns) column.Width = (int)(column.Width * g.DpiX / 96F);
+                scaledColumns = true;
+            }
+        }
+        protected override void OnDrawColumnHeader(DrawListViewColumnHeaderEventArgs e)
+        {
+            using (Brush fill = new SolidBrush(Theme.Background)) e.Graphics.FillRectangle(fill, e.Bounds);
+            Rectangle text = Rectangle.Inflate(e.Bounds, -8, 0);
+            TextRenderer.DrawText(e.Graphics, e.Header.Text, Font, text, Theme.Muted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            using (Pen line = new Pen(Theme.Border)) e.Graphics.DrawLine(line, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+        }
+        protected override void OnDrawItem(DrawListViewItemEventArgs e) { }
+        protected override void OnDrawSubItem(DrawListViewSubItemEventArgs e)
+        {
+            bool selected = e.Item.Selected;
+            using (Brush fill = new SolidBrush(selected ? Theme.SoftAccent : e.ItemIndex % 2 == 0 ? Color.White : Theme.Background))
+                e.Graphics.FillRectangle(fill, e.Bounds);
+            if (selected && e.ColumnIndex == 0)
+                using (Brush accent = new SolidBrush(Theme.Accent)) e.Graphics.FillRectangle(accent, e.Bounds.Left, e.Bounds.Top + 5, 3, e.Bounds.Height - 10);
+            Rectangle text = Rectangle.Inflate(e.Bounds, -8, 0);
+            TextRenderer.DrawText(e.Graphics, e.SubItem.Text, Font, text, selected ? Theme.Accent : Theme.Ink,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            if (e.Item.Focused && Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(e.Bounds, -1, -1));
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { SmallImageList = null; rowHeight.Dispose(); }
+            base.Dispose(disposing);
+        }
+    }
     internal sealed class CanvasPanel : Panel
     {
         public CanvasPanel() { DoubleBuffered = true; ResizeRedraw = true; SetStyle(ControlStyles.Selectable, true); TabStop = true; }

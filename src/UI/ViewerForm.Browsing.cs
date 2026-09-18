@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -238,7 +238,7 @@ namespace MedVision.AnnotationViewer
                 currentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
                 PopulateAnnotationList(currentShapes);
 
-                if (fitCheckBox.Checked)
+                if (autoFit)
                 {
                     FitToWindow();
                 }
@@ -335,7 +335,8 @@ namespace MedVision.AnnotationViewer
                 RectangleF? bounds = shape.Bounds;
                 item.SubItems.Add(bounds.HasValue
                     ? string.Format("{0:0},{1:0},{2:0},{3:0}", bounds.Value.X, bounds.Value.Y, bounds.Value.Width, bounds.Value.Height)
-                    : "-");
+                      : "-");
+                item.ToolTipText = string.Join("  ·  ", item.SubItems.Cast<ListViewItem.ListViewSubItem>().Select(s => s.Text).ToArray());
                 annotationList.Items.Add(item);
             }
         }
@@ -359,7 +360,7 @@ namespace MedVision.AnnotationViewer
             selectedAnnotationIndex = -1;
             currentAnnotationBytes = null;
             pictureBox.Visible = false;
-            canvasTitle.Text = "图像预览";
+            canvasTitle.Text = "标注查看";
             annotationCount.Text = "当前标注";
             zoomLabel.Text = "—";
             imagePanel.AutoScrollPosition = Point.Empty;

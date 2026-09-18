@@ -12,9 +12,6 @@ namespace MedVision.AnnotationViewer
     /// <summary>One renderer shared by the live canvas and full resolution exports.</summary>
     internal static class AnnotationRenderer
     {
-        private static readonly Color[] Palette = {
-            Color.FromArgb(82, 158, 255), Color.FromArgb(255, 115, 138), Color.FromArgb(36, 216, 186),
-            Color.FromArgb(255, 199, 80), Color.FromArgb(189, 148, 255), Color.FromArgb(146, 220, 99) };
         private static readonly Color Green = Color.FromArgb(42, 216, 144);
         private static readonly Color Orange = Color.FromArgb(255, 170, 67);
         private static readonly Color Red = Color.FromArgb(255, 87, 111);
@@ -28,7 +25,7 @@ namespace MedVision.AnnotationViewer
             {
                 if (mode == ViewMode.Annotations)
                 {
-                    for (int i = 0; i < gt.Count; i++) DrawShape(g, gt[i], scale, Palette[i % Palette.Length],
+                    for (int i = 0; i < gt.Count; i++) DrawShape(g, gt[i], scale, ClassColor(gt[i]),
                         (i + 1).ToString(), false, labels, font);
                     return;
                 }
@@ -48,6 +45,31 @@ namespace MedVision.AnnotationViewer
                     Legend(g, mode == ViewMode.GroundTruth ? "GT 真实标注" : "GT 绿色实线   ·   Pred 橙色虚线", font);
                 }
             }
+        }
+
+        internal static Color ClassColor(AnnotationShape shape)
+        {
+            string key = (shape.Label ?? string.Empty).Trim();
+            if (shape.ClassId.HasValue)
+            {
+                string prefix = shape.ClassId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
+                if (key.StartsWith(prefix, StringComparison.Ordinal)) key = key.Substring(prefix.Length).Trim();
+            }
+            // Stable across images, filtering, deletion and app restarts; no palette wrap after six classes.
+            uint hash = 2166136261;
+            unchecked
+            {
+                foreach (char c in key.ToUpperInvariant()) hash = (hash ^ c) * 16777619;
+                hash ^= hash >> 16; hash *= 0x85ebca6b;
+                hash ^= hash >> 13; hash *= 0xc2b2ae35;
+                hash ^= hash >> 16;
+            }
+            double hue = (hash % 3600) / 600.0;
+            double x = 1 - Math.Abs(hue % 2 - 1);
+            double r = hue < 1 || hue >= 5 ? 1 : hue < 2 ? x : hue >= 4 ? x : 0;
+            double g = hue >= 1 && hue < 3 ? 1 : hue < 1 ? x : hue < 4 ? x : 0;
+            double b = hue >= 3 && hue < 5 ? 1 : hue >= 2 && hue < 3 ? x : hue >= 5 ? x : 0;
+            return Color.FromArgb((int)(65 + 190 * r), (int)(65 + 190 * g), (int)(65 + 190 * b));
         }
 
         private static void DrawShape(Graphics g, AnnotationShape shape, float scale, Color color,

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -18,7 +18,6 @@ namespace MedVision.AnnotationViewer
     {
         private void WireEvents()
         {
-            undoButton.Click += async delegate { await UndoEditAsync(); };
             annotationList.SelectedIndexChanged += delegate
             {
                 if (syncingAnnotationSelection) return;
@@ -71,22 +70,15 @@ namespace MedVision.AnnotationViewer
             };
             previousButton.Click += delegate { MoveSelection(-1); };
             nextButton.Click += delegate { MoveSelection(1); };
-            fitButton.Click += delegate { fitCheckBox.Checked = true; FitToWindow(); };
+            fitButton.Click += delegate { autoFit = true; FitToWindow(); };
             zoomInButton.Click += delegate { SetZoom(zoom * 1.25f); };
             zoomOutButton.Click += delegate { SetZoom(zoom / 1.25f); };
             actualSizeButton.Click += delegate
             {
-                fitCheckBox.Checked = false;
+                autoFit = false;
                 SetZoom(1.0f);
             };
-            labelsCheckBox.CheckedChanged += delegate { RenderCurrent(); };
-            fitCheckBox.CheckedChanged += delegate
-            {
-                if (fitCheckBox.Checked)
-                {
-                    FitToWindow();
-                }
-            };
+            labelsButton.Click += delegate { labelsButton.Checked = !labelsButton.Checked; RenderCurrent(); };
             fileList.SelectedIndexChanged += delegate
             {
                 if (!changingSelection)
@@ -97,7 +89,7 @@ namespace MedVision.AnnotationViewer
             imagePanel.Resize += delegate
             {
                 imagePanel.Invalidate();
-                if (fitCheckBox.Checked)
+                if (autoFit)
                 {
                     FitToWindow();
                 }
@@ -107,7 +99,7 @@ namespace MedVision.AnnotationViewer
             {
                 if ((ModifierKeys & Keys.Control) == Keys.Control)
                 {
-                    fitCheckBox.Checked = false;
+                    autoFit = false;
                     SetZoom(e.Delta > 0 ? zoom * 1.15f : zoom / 1.15f);
                 }
             };
@@ -117,7 +109,7 @@ namespace MedVision.AnnotationViewer
             {
                 if ((ModifierKeys & Keys.Control) == Keys.Control)
                 {
-                    fitCheckBox.Checked = false;
+                    autoFit = false;
                     SetZoom(e.Delta > 0 ? zoom * 1.15f : zoom / 1.15f);
                 }
             };
@@ -151,7 +143,7 @@ namespace MedVision.AnnotationViewer
                     return;
                 }
                 if (isBusy || folderText.ContainsFocus || searchText.ContainsFocus ||
-                    predFolderText.ContainsFocus || iouNumeric.ContainsFocus) return;
+                    predFolderText.ContainsFocus || iouNumeric.Parent.ContainsFocus) return;
                 if (e.Control && e.KeyCode == Keys.Z)
                 {
                     e.SuppressKeyPress = true;
@@ -177,13 +169,13 @@ namespace MedVision.AnnotationViewer
                 }
                 else if (e.Control && (e.KeyCode == Keys.Oemplus || e.KeyCode == Keys.Add))
                 {
-                    fitCheckBox.Checked = false;
+                    autoFit = false;
                     SetZoom(zoom * 1.25f);
                     e.Handled = true;
                 }
                 else if (e.Control && (e.KeyCode == Keys.OemMinus || e.KeyCode == Keys.Subtract))
                 {
-                    fitCheckBox.Checked = false;
+                    autoFit = false;
                     SetZoom(zoom / 1.25f);
                     e.Handled = true;
                 }

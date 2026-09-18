@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -65,7 +65,7 @@ namespace MedVision.AnnotationViewer
                 records.Clear();
                 records.AddRange(loaded);
                 if (!string.Equals(loadedFolder, fullPath, StringComparison.OrdinalIgnoreCase))
-                { editHistory.Clear(); undoButton.Enabled = false; }
+                    editHistory.Clear();
                 loadedFolder = fullPath;
                 folderText.Text = fullPath;
                 resolvedPredictionFolder = null;

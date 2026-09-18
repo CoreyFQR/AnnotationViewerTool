@@ -15,7 +15,6 @@ namespace MedVision.AnnotationViewer
         private byte[] currentAnnotationBytes;
         private bool syncingAnnotationSelection;
         private readonly Stack<EditTransaction> editHistory = new Stack<EditTransaction>();
-        private readonly Button undoButton = new ModernButton();
 
         private void SelectAnnotation(int index)
         {
@@ -111,7 +110,6 @@ namespace MedVision.AnnotationViewer
                 var transaction = await Task.Run(() => EditTransaction.Apply(loadedFolder, plan(cancellation), cancellation), cancellation);
                 if (transaction == null) { SetStatus("没有匹配的标注。"); return; }
                 editHistory.Push(transaction);
-                undoButton.Enabled = true;
                 await RefreshAfterEditAsync(selectedPath, index);
                 SetStatus(message + " · Ctrl+Z 撤销" + (transaction.RecoveryWarning == null ? "" : " · " + transaction.RecoveryWarning));
             });
@@ -148,7 +146,6 @@ namespace MedVision.AnnotationViewer
                 var transaction = editHistory.Peek();
                 await Task.Run(() => transaction.Undo());
                 editHistory.Pop();
-                undoButton.Enabled = editHistory.Count > 0;
                 await RefreshAfterEditAsync(path, index);
                 SetStatus("已撤销删除" + (transaction.RecoveryWarning == null ? "" : " · " + transaction.RecoveryWarning));
             });

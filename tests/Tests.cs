@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -49,6 +49,7 @@ namespace MedVision.AnnotationViewer
                 TestServices();
                 TestEditServices();
                 TestAuditRegressions();
+                TestVersion210();
                 Exception failure = null;
                 using (ViewerForm form = new ViewerForm())
                 {
@@ -63,7 +64,7 @@ namespace MedVision.AnnotationViewer
                     Application.Run(form);
                 }
                 if (failure != null) throw failure;
-                string report = "Annatation Viewer 2.0.1: " + checks + " checks passed.\n" + DateTime.Now.ToString("s");
+                string report = "Annatation Viewer 2.1.0: " + checks + " checks passed.\n" + DateTime.Now.ToString("s");
                 File.WriteAllText(Path.Combine(qa, "test-results.txt"), report);
                 Console.WriteLine(report);
                 return 0;
@@ -168,11 +169,11 @@ namespace MedVision.AnnotationViewer
                 Check(access.CanWrite, "viewer releases source image file lock");
             using (StatisticsForm dialog = StatisticsForm.Annotations(stats, dataset)) SaveForm(dialog, "statistics.png");
             using (StatisticsForm dialog = StatisticsForm.Comparison(comparisons, dataset, predictions, 0.5F)) SaveForm(dialog, "comparison-statistics.png");
-            Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == "2.0.1.0", "assembly version is 2.0.1");
+            Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == "2.1.0.0", "assembly version is 2.1.0");
             using (Stream logoStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MedVision.logo.png"))
             using (Image logo = logoStream == null ? null : Image.FromStream(logoStream))
             {
-                Check(logo != null && logo.Width == 1254 && logo.Height == 1254, "2.0.1 microscope logo is embedded at source resolution");
+                Check(logo != null && logo.Width == 1254 && logo.Height == 1254, "2.1.0 microscope logo is embedded at source resolution");
                 using (Bitmap roundedLogo = new Bitmap(logo))
                     Check(roundedLogo.GetPixel(0, 0).A == 0 && roundedLogo.GetPixel(roundedLogo.Width / 2,
                         roundedLogo.Height / 2).A == 255, "embedded logo has transparent rounded corners");
@@ -240,9 +241,9 @@ namespace MedVision.AnnotationViewer
 
         private static async Task TestUi(ViewerForm form)
         {
-            Check(form.Text == "Annatation Viewer · 标注工作台 · 2.0.1", "window title uses the 2.0.1 product name");
+            Check(form.Text == "Annatation Viewer · 标注工作台 · 2.1.0", "window title uses the 2.1.0 product name");
             Check(Field<Label>(form, "brandTitle").Text == "Annatation Viewer", "header title matches product name");
-            Check(Field<Label>(form, "brandSubtitle").Text == "标注工作台·2.0.1", "header subtitle includes the 2.0.1 version");
+            Check(Field<Label>(form, "brandSubtitle").Text == "标注工作台 · 2.1.0", "header subtitle includes the 2.1.0 version");
             Check(Theme.Accent.ToArgb() == Color.FromArgb(0, 76, 151).ToArgb() &&
                 Theme.Canvas.ToArgb() == Color.FromArgb(0, 35, 70).ToArgb(), "Pantone blue theme palette is active");
             CheckEmptyCenter(form);
@@ -284,17 +285,40 @@ namespace MedVision.AnnotationViewer
             Check(keyboardToggle.Checked, "switch responds to Space key");
             keyboardToggle.Checked = false;
             NumericUpDown numeric = Field<NumericUpDown>(form, "iouNumeric");
-            Check(numeric.Parent is NumericField && numeric.BorderStyle == BorderStyle.None &&
-                numeric.Parent.ClientRectangle.Contains(numeric.Bounds) && numeric.Width > 55,
-                "IoU editor uses the modern rounded field and stays inside its row at system DPI");
+            NumericField numericField = (NumericField)numeric.Parent;
+            Check(!numeric.Visible && numericField.Input.BorderStyle == BorderStyle.None &&
+                numericField.ClientRectangle.Contains(numericField.Input.Bounds), "IoU field exposes only the centered modern editor");
             decimal previousIou = numeric.Value;
-            Control numericField = numeric.Parent;
-            numericField.GetType().GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(
-                numericField, new object[] { new MouseEventArgs(MouseButtons.Left, 1, numericField.Width - 4, 4, 0) });
-            Check(numeric.Value == previousIou + numeric.Increment, "modern IoU stepper increases the threshold");
-            numericField.GetType().GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(
-                numericField, new object[] { new MouseEventArgs(MouseButtons.Left, 1, numericField.Width - 4, numericField.Height - 4, 0) });
-            Check(numeric.Value == previousIou, "modern IoU stepper decreases the threshold");
+            numericField.Increase.PerformClick();
+            Check(numeric.Value == previousIou + numeric.Increment, "modern IoU plus increases the threshold");
+            numericField.Decrease.PerformClick();
+            Check(numeric.Value == previousIou, "modern IoU minus decreases the threshold");
+            numericField.Input.Text = "0.75";
+            Check(numeric.Value == 0.75M, "IoU accepts direct numeric entry");
+            numeric.Value = previousIou;
+            numeric.Value = 1M;
+            numericField.Increase.PerformClick();
+            Check(numeric.Value == 1M, "IoU plus clamps at maximum");
+            numeric.Value = 0.01M;
+            numericField.Decrease.PerformClick();
+            Check(numeric.Value == 0.01M, "IoU minus clamps at minimum");
+            numericField.Input.Text = "invalid";
+            SendKey(numericField.Input, Keys.Enter);
+            Check(numericField.Input.Text == "0.01" && numeric.Value == 0.01M, "invalid IoU input restores valid value");
+            numericField.Input.Text = "2";
+            SendKey(numericField.Input, Keys.Enter);
+            Check(numeric.Value == 1M && numericField.Input.Text == "1.00", "typed IoU is clamped and normalized");
+            numeric.Value = previousIou;
+            ModernButton labelsToggle = Field<ModernButton>(form, "labelsButton");
+            labelsToggle.PerformClick();
+            Check(!labelsToggle.Checked, "labels button hides labels");
+            labelsToggle.PerformClick();
+            Check(labelsToggle.Checked && labelsToggle.Parent == Field<Button>(form, "fitButton").Parent,
+                "labels button restores labels beside fit action");
+            Check(Field<Button>(form, "statsButton").Parent == Field<ListBox>(form, "fileList").Parent &&
+                ((TableLayoutPanel)Field<Button>(form, "statsButton").Parent).GetRow(Field<Button>(form, "statsButton")) == 1 &&
+                Field<Button>(form, "exportCompareButton").Parent == Field<ListView>(form, "annotationList").Parent,
+                "statistics sits below library title while export stays in right inspector");
             Field<CheckBox>(form, "errorAnalysisCheckBox").Checked = true;
             SaveForm(form, "ui-comparison.png");
             Field<CheckBox>(form, "gtOnlyCheckBox").Checked = true;
@@ -304,7 +328,7 @@ namespace MedVision.AnnotationViewer
                 "removing predictions restores annotation browsing");
             for (int i = 0; i < 12; i++) Invoke(form, "SetZoom", i % 2 == 0 ? 8F : 0.5F);
             Check(Field<PictureBox>(form, "pictureBox").Image == null, "repeated 800 percent zoom uses paint rendering");
-            Field<CheckBox>(form, "fitCheckBox").Checked = true;
+            Field<Button>(form, "fitButton").PerformClick();
             form.Size = new Size(1120, 720);
             await Task.Delay(50);
             SaveForm(form, "ui-compact.png");

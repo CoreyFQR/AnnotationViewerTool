@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -21,7 +21,7 @@ namespace MedVision.AnnotationViewer
 
         private void SetZoom(float value)
         {
-            fitCheckBox.Checked = false;
+            autoFit = false;
             zoom = Clamp(value, 0.005F, 8F);
             RenderCurrent();
         }
@@ -45,8 +45,8 @@ namespace MedVision.AnnotationViewer
             updatingCanvas = true;
             try
             {
-            imagePanel.AutoScroll = !fitCheckBox.Checked;
-            if (fitCheckBox.Checked)
+            imagePanel.AutoScroll = !autoFit;
+            if (autoFit)
                 zoom = Clamp(Math.Min((imagePanel.ClientSize.Width - 32F) / sourceImage.Width,
                     (imagePanel.ClientSize.Height - 32F) / sourceImage.Height), 0.005F, 8F);
             pictureBox.Size = new Size(Math.Max(1, (int)Math.Round(sourceImage.Width * zoom)),
@@ -57,7 +57,7 @@ namespace MedVision.AnnotationViewer
             pictureBox.Visible = true;
             pictureBox.Invalidate();
             zoomLabel.Text = string.Format("{0:0.#}%", zoom * 100);
-            canvasTitle.Text = GetSelectedRecord() == null ? "图像预览" : GetSelectedRecord().DisplayName +
+            canvasTitle.Text = GetSelectedRecord() == null ? "标注查看" : "标注查看   ·   " + GetSelectedRecord().DisplayName +
                 string.Format("   ·   {0} × {1}", sourceImage.Width, sourceImage.Height);
             annotationCount.Text = "当前标注   ·   " + currentShapes.Count;
             }
@@ -71,7 +71,7 @@ namespace MedVision.AnnotationViewer
             e.Graphics.InterpolationMode = zoom > 2 ? InterpolationMode.NearestNeighbor : InterpolationMode.HighQualityBicubic;
             e.Graphics.DrawImage(sourceImage, new Rectangle(Point.Empty, pictureBox.Size));
             AnnotationRenderer.Draw(e.Graphics, currentShapes, currentPredShapes, zoom,
-                CurrentViewMode(), labelsCheckBox.Checked, (float)iouNumeric.Value);
+                CurrentViewMode(), labelsButton.Checked, (float)iouNumeric.Value);
             PaintAnnotationSelection(e.Graphics);
         }
 

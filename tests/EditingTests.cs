@@ -142,7 +142,7 @@ namespace MedVision.AnnotationViewer
                         "zoom stays at right edge for " + size + " / " + scale);
                 }
             }
-            Field<CheckBox>(form, "fitCheckBox").Checked = true;
+            Field<Button>(form, "fitButton").PerformClick();
             float zoom = Field<float>(form, "zoom");
             typeof(Control).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(picture,
                 new object[] { new MouseEventArgs(MouseButtons.Left, 1, (int)(180 * zoom), (int)(180 * zoom), 0) });

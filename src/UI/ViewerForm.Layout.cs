@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
@@ -8,11 +8,11 @@ namespace MedVision.AnnotationViewer
 {
     internal sealed partial class ViewerForm
     {
-        private readonly Label canvasTitle = Theme.Label("图像预览", 10, Theme.Ink);
+        private readonly Label canvasTitle = Theme.Label("标注查看", 10, Theme.Ink);
         private readonly Label zoomLabel = Theme.Label("—", 9, Theme.Muted);
         private readonly Label annotationCount = Theme.Label("当前标注", 10, Theme.Ink);
         private readonly Label brandTitle = Theme.Label("Annatation Viewer", 18, Theme.Ink);
-        private readonly Label brandSubtitle = Theme.Label("标注工作台·" + AppInfo.Version, 8, Theme.Muted);
+        private readonly Label brandSubtitle = Theme.Label("标注工作台 · " + AppInfo.Version, 8, Theme.Muted);
         private readonly Button clearPredButton = new ModernButton();
         private readonly Button cancelWorkButton = new ModernButton();
         private readonly ProgressBar progressBar = new ProgressBar();
@@ -41,11 +41,10 @@ namespace MedVision.AnnotationViewer
         private void BuildLayout()
         {
             SuspendLayout();
-            TableLayoutPanel root = Theme.Rows(76, 52, -100, 34);
+            TableLayoutPanel root = Theme.Rows(76, -100, 34);
             root.Padding = new Padding(18, 0, 18, 8);
             Controls.Add(root);
             root.Controls.Add(BuildHeader(), 0, 0);
-            root.Controls.Add(BuildFolderBar(), 0, 1);
 
             librarySplit.Size = new Size(1400, 700);
             librarySplit.Dock = DockStyle.Fill;
@@ -71,7 +70,7 @@ namespace MedVision.AnnotationViewer
             inspectorSplit.Panel2.Controls.Add(BuildInspector());
             librarySplit.Panel2.Controls.Add(inspectorSplit);
             workspace = librarySplit;
-            root.Controls.Add(librarySplit, 0, 2);
+            root.Controls.Add(librarySplit, 0, 1);
 
             TableLayoutPanel status = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3 };
             status.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -92,7 +91,7 @@ namespace MedVision.AnnotationViewer
             cancelWorkButton.Visible = false;
             cancelWorkButton.Click += delegate { if (workCancellation != null) workCancellation.Cancel(); };
             status.Controls.Add(cancelWorkButton, 2, 0);
-            root.Controls.Add(status, 0, 3);
+            root.Controls.Add(status, 0, 2);
             AllowDrop = true;
             DragEnter += delegate(object sender, DragEventArgs e)
             {
@@ -110,12 +109,11 @@ namespace MedVision.AnnotationViewer
 
         private Control BuildHeader()
         {
-            TableLayoutPanel header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4,
+            TableLayoutPanel header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3,
                 Padding = new Padding(0, 12, 0, 12), Margin = new Padding(0) };
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 58));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104));
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 126));
             PictureBox logo = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom,
                 Margin = new Padding(0, 0, 10, 0) };
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MedVision.logo.png"))
@@ -129,24 +127,19 @@ namespace MedVision.AnnotationViewer
             brand.Controls.Add(brandTitle, 0, 0);
             brand.Controls.Add(brandSubtitle, 0, 1);
             header.Controls.Add(brand, 1, 0);
-            Theme.Button(statsButton, "标注统计", false);
-            Theme.Button(exportCompareButton, "导出对比图", true);
-            statsButton.Dock = exportCompareButton.Dock = DockStyle.Fill;
-            statsButton.Margin = exportCompareButton.Margin = new Padding(5, 8, 0, 8);
-            header.Controls.Add(statsButton, 2, 0);
-            header.Controls.Add(exportCompareButton, 3, 0);
+            header.Controls.Add(BuildFolderBar(), 2, 0);
             return header;
         }
 
         private Control BuildFolderBar()
         {
             TableLayoutPanel bar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4,
-                BackColor = Color.White, Padding = new Padding(12, 5, 8, 5), Margin = new Padding(0) };
+                BackColor = Theme.Background, Padding = new Padding(12, 5, 8, 5), Margin = new Padding(0) };
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 68));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 114));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 66));
-            bar.Controls.Add(Theme.Label("数据目录", 9, Theme.Muted), 0, 0);
+            bar.Controls.Add(Theme.Label("数据目录", 9, Theme.Ink), 0, 0);
             folderText.ReadOnly = false;
             folderText.AccessibleName = "数据集目录";
             bar.Controls.Add(new TextField(folderText), 1, 0);
@@ -160,12 +153,15 @@ namespace MedVision.AnnotationViewer
 
         private Control BuildLibrary()
         {
-            TableLayoutPanel library = Theme.Rows(34, 24, 40, 30, -100);
-            library.BackColor = Color.White;
+            TableLayoutPanel library = Theme.Rows(34, 42, 24, 40, 30, -100);
+            library.BackColor = Color.Transparent;
             library.Padding = new Padding(14, 10, 14, 8);
             library.Margin = Padding.Empty;
             library.Controls.Add(Theme.Label("图像库", 12, Theme.Ink), 0, 0);
-            library.Controls.Add(Theme.Label("搜索文件名", 9, Theme.Muted), 0, 1);
+            Theme.Button(statsButton, "标注统计", false);
+            statsButton.Dock = DockStyle.Fill;
+            library.Controls.Add(statsButton, 0, 1);
+            library.Controls.Add(Theme.Label("搜索文件名", 9, Theme.Ink), 0, 2);
             TableLayoutPanel search = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0) };
             search.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             search.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48));
@@ -175,13 +171,13 @@ namespace MedVision.AnnotationViewer
             clearSearchButton.Enabled = false;
             search.Controls.Add(new TextField(searchText), 0, 0);
             search.Controls.Add(clearSearchButton, 1, 0);
-            library.Controls.Add(search, 0, 2);
+            library.Controls.Add(search, 0, 3);
             fileInfoLabel.Dock = DockStyle.Fill;
             fileInfoLabel.ForeColor = Theme.Muted;
             fileInfoLabel.Text = "0 张图 / 0 个框";
             fileInfoLabel.TextAlign = ContentAlignment.MiddleLeft;
             fileInfoLabel.AutoEllipsis = true;
-            library.Controls.Add(fileInfoLabel, 0, 3);
+            library.Controls.Add(fileInfoLabel, 0, 4);
             fileList.Dock = DockStyle.Fill;
             fileList.BorderStyle = BorderStyle.None;
             fileList.IntegralHeight = false;
@@ -197,17 +193,25 @@ namespace MedVision.AnnotationViewer
                 fileToolTip.SetToolTip(fileList, index >= 0 && index < visibleRecords.Count ? visibleRecords[index].DisplayName : null);
             };
             fileList.MouseLeave += delegate { hoveredFile = -1; fileToolTip.SetToolTip(fileList, null); };
-            library.Controls.Add(fileList, 0, 4);
-            return library;
+            library.Controls.Add(fileList, 0, 5);
+            return new RoundedCard(library);
         }
 
         private Control BuildCanvas()
         {
-            TableLayoutPanel area = Theme.Rows(44, -100, 48, 34);
-            area.BackColor = Color.White;
+            TableLayoutPanel area = Theme.Rows(44, -100, 50);
+            area.BackColor = Color.Transparent;
             area.Margin = Padding.Empty;
             canvasTitle.Padding = new Padding(14, 0, 10, 0);
-            area.Controls.Add(canvasTitle, 0, 0);
+            TableLayoutPanel caption = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = Padding.Empty };
+            caption.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            caption.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
+            zoomLabel.Dock = DockStyle.Fill;
+            zoomLabel.TextAlign = ContentAlignment.MiddleRight;
+            zoomLabel.Margin = new Padding(0, 0, 12, 0);
+            caption.Controls.Add(canvasTitle, 0, 0);
+            caption.Controls.Add(zoomLabel, 1, 0);
+            area.Controls.Add(caption, 0, 0);
             imagePanel.Dock = DockStyle.Fill;
             imagePanel.AutoScroll = true;
             imagePanel.BackColor = Theme.Canvas;
@@ -220,7 +224,7 @@ namespace MedVision.AnnotationViewer
             imagePanel.Controls.Add(pictureBox);
             area.Controls.Add(imagePanel, 0, 1);
             FlowLayoutPanel toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill,
-                WrapContents = false, AutoScroll = true, Padding = new Padding(8, 5, 0, 0), Margin = new Padding(0) };
+                WrapContents = false, AutoScroll = true, Padding = new Padding(8, 5, 8, 5), Margin = new Padding(0) };
             Button[] buttons = { previousButton, nextButton, zoomOutButton, zoomInButton, actualSizeButton, fitButton };
             string[] titles = { "←", "→", "−", "+", "100%", "适应窗口" };
             for (int i = 0; i < buttons.Length; i++)
@@ -229,40 +233,21 @@ namespace MedVision.AnnotationViewer
                 buttons[i].Width = i < 4 ? 38 : i == 4 ? 62 : 82;
                 toolbar.Controls.Add(buttons[i]);
             }
-            Theme.Button(undoButton, "撤销删除", false);
-            undoButton.Width = 88;
-            undoButton.Enabled = false;
-            undoButton.AccessibleDescription = "Ctrl+Z 撤销上一次删除";
-            toolbar.Controls.Add(undoButton);
+            Theme.Button(labelsButton, "显示标签", false);
+            labelsButton.Width = 82;
+            labelsButton.Checked = true;
+            toolbar.Controls.Add(labelsButton);
             area.Controls.Add(toolbar, 0, 2);
-            FlowLayoutPanel toggles = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false,
-                Padding = new Padding(12, 0, 0, 0), Margin = new Padding(0) };
-            fitCheckBox.Text = "自动适应";
-            labelsCheckBox.Text = "显示标签";
-            fitCheckBox.Checked = labelsCheckBox.Checked = true;
-            fitCheckBox.AutoSize = labelsCheckBox.AutoSize = true;
-            fitCheckBox.ForeColor = labelsCheckBox.ForeColor = Theme.Muted;
-            toggles.Controls.Add(fitCheckBox);
-            toggles.Controls.Add(labelsCheckBox);
-            TableLayoutPanel footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = Padding.Empty };
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
-            zoomLabel.Dock = DockStyle.Fill;
-            zoomLabel.TextAlign = ContentAlignment.MiddleRight;
-            zoomLabel.Margin = new Padding(0, 0, 12, 0);
-            footer.Controls.Add(toggles, 0, 0);
-            footer.Controls.Add(zoomLabel, 1, 0);
-            area.Controls.Add(footer, 0, 3);
-            return area;
+            return new RoundedCard(area);
         }
 
         private Control BuildInspector()
         {
-            TableLayoutPanel inspector = Theme.Rows(34, 24, 40, 40, 38, 36, 40, 42, -100, 26);
-            inspector.BackColor = Color.White;
+            TableLayoutPanel inspector = Theme.Rows(34, 24, 40, 40, 40, 36, 40, 42, 42, -100);
+            inspector.BackColor = Color.Transparent;
             inspector.Padding = new Padding(14, 10, 14, 8);
             inspector.Controls.Add(Theme.Label("检查与对比", 12, Theme.Ink), 0, 0);
-            inspector.Controls.Add(Theme.Label("预测目录", 9, Theme.Muted), 0, 1);
+            inspector.Controls.Add(Theme.Label("预测目录", 9, Theme.Ink), 0, 1);
             predFolderText.AccessibleName = "YOLO 预测 labels 文件夹";
             inspector.Controls.Add(new TextField(predFolderText), 0, 2);
             TableLayoutPanel predButtons = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0) };
@@ -277,11 +262,11 @@ namespace MedVision.AnnotationViewer
             inspector.Controls.Add(predButtons, 0, 3);
             TableLayoutPanel threshold = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             threshold.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            threshold.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104));
+            threshold.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
             iouLabel.Text = "IoU 匹配阈值";
             iouLabel.Dock = DockStyle.Fill;
             iouLabel.TextAlign = ContentAlignment.MiddleLeft;
-            iouLabel.ForeColor = Theme.Muted;
+            iouLabel.ForeColor = Theme.Ink;
             iouNumeric.DecimalPlaces = 2;
             iouNumeric.Minimum = 0.01M;
             iouNumeric.Maximum = 1M;
@@ -301,7 +286,10 @@ namespace MedVision.AnnotationViewer
             Theme.Button(comparisonStatsButton, "统计误差  ·  TP / FP / FN", false);
             comparisonStatsButton.Dock = DockStyle.Fill;
             inspector.Controls.Add(comparisonStatsButton, 0, 6);
-            inspector.Controls.Add(annotationCount, 0, 7);
+            Theme.Button(exportCompareButton, "导出对比图", true);
+            exportCompareButton.Dock = DockStyle.Fill;
+            inspector.Controls.Add(exportCompareButton, 0, 7);
+            inspector.Controls.Add(annotationCount, 0, 8);
             annotationList.Dock = DockStyle.Fill;
             annotationList.View = View.Details;
             annotationList.FullRowSelect = true;
@@ -313,9 +301,8 @@ namespace MedVision.AnnotationViewer
             annotationList.Columns.Add("标签", 102);
             annotationList.Columns.Add("类型", 86);
             annotationList.Columns.Add("坐标", 160);
-            inspector.Controls.Add(annotationList, 0, 8);
-            inspector.Controls.Add(Theme.Label("GT 真实标注  /  Pred 模型预测", 8, Theme.Muted), 0, 9);
-            return inspector;
+            inspector.Controls.Add(annotationList, 0, 9);
+            return new RoundedCard(inspector);
         }
 
         private void DrawFileItem(object sender, DrawItemEventArgs e)
