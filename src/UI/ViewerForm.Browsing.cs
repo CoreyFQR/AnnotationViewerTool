@@ -182,7 +182,7 @@ namespace MedVision.AnnotationViewer
             catch (Exception ex)
             {
                 resolvedPredictionFolder = null;
-                currentPredShapes.Clear();
+                currentPredShapes = new List<AnnotationShape>();
                 UpdatePredictionControlsState();
                 RenderCurrent();
                 SetStatus("预测目录未加载：" + ex.Message);
@@ -302,7 +302,7 @@ namespace MedVision.AnnotationViewer
             string predLabelFolder = resolvedPredictionFolder;
             if (!gtOnlyCheckBox.Checked && !string.IsNullOrEmpty(predLabelFolder) && Directory.Exists(predLabelFolder))
             {
-                MatchResult match = DetectionMatcher.MatchDetections(currentShapes, currentPredShapes, (float)iouNumeric.Value);
+                MatchResult match = GetCurrentMatch();
                 compareText = string.Format(
                     "  |  Pred {0}  |  TP {1} FP {2} FN {3} @ IoU {4:0.00}  |  {5}",
                     currentPredShapes.Count,
@@ -325,20 +325,25 @@ namespace MedVision.AnnotationViewer
 
         private void PopulateAnnotationList(IList<AnnotationShape> shapes)
         {
-            annotationList.Items.Clear();
-            for (int i = 0; i < shapes.Count; i++)
+            annotationList.BeginUpdate();
+            try
             {
-                AnnotationShape shape = shapes[i];
-                ListViewItem item = new ListViewItem((i + 1).ToString());
-                item.SubItems.Add(shape.Label);
-                item.SubItems.Add(shape.ShapeType);
-                RectangleF? bounds = shape.Bounds;
-                item.SubItems.Add(bounds.HasValue
-                    ? string.Format("{0:0},{1:0},{2:0},{3:0}", bounds.Value.X, bounds.Value.Y, bounds.Value.Width, bounds.Value.Height)
-                      : "-");
-                item.ToolTipText = string.Join("  ·  ", item.SubItems.Cast<ListViewItem.ListViewSubItem>().Select(s => s.Text).ToArray());
-                annotationList.Items.Add(item);
+                annotationList.Items.Clear();
+                for (int i = 0; i < shapes.Count; i++)
+                {
+                    AnnotationShape shape = shapes[i];
+                    ListViewItem item = new ListViewItem((i + 1).ToString());
+                    item.SubItems.Add(shape.Label);
+                    item.SubItems.Add(shape.ShapeType);
+                    RectangleF? bounds = shape.Bounds;
+                    item.SubItems.Add(bounds.HasValue
+                        ? string.Format("{0:0},{1:0},{2:0},{3:0}", bounds.Value.X, bounds.Value.Y, bounds.Value.Width, bounds.Value.Height)
+                        : "-");
+                    item.ToolTipText = string.Join("  ·  ", item.SubItems.Cast<ListViewItem.ListViewSubItem>().Select(s => s.Text).ToArray());
+                    annotationList.Items.Add(item);
+                }
             }
+            finally { annotationList.EndUpdate(); }
         }
 
         private void MoveSelection(int direction)
@@ -357,10 +362,13 @@ namespace MedVision.AnnotationViewer
 
         private void ClearCurrentImage()
         {
+            currentMatch = null;
+            matchedGt = matchedPred = null;
             selectedAnnotationIndex = -1;
             currentAnnotationBytes = null;
             pictureBox.Visible = false;
             canvasTitle.Text = "标注查看";
+            fileToolTip.SetToolTip(canvasTitle, null);
             annotationCount.Text = "当前标注";
             zoomLabel.Text = "—";
             imagePanel.AutoScrollPosition = Point.Empty;

@@ -20,11 +20,18 @@ namespace MedVision.AnnotationViewer
         public static readonly Color SwitchOff = Color.FromArgb(159, 178, 195);
         public static readonly Color Divider = Color.FromArgb(145, 166, 185);
 
-        public static Label Label(string text, float size, Color color)
+        public static Label Label(string text, float size, Color color, bool singleLine = false)
         {
-            return new Label { Text = text, AutoSize = false, Dock = DockStyle.Fill,
-                Font = new Font("Microsoft YaHei UI", size), ForeColor = color,
-                TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Margin = new Padding(0) };
+            Label label = singleLine ? new SingleLineLabel() : new Label();
+            label.Text = text;
+            label.AutoSize = false;
+            label.Dock = DockStyle.Fill;
+            label.Font = new Font("Microsoft YaHei UI", size);
+            label.ForeColor = color;
+            label.TextAlign = ContentAlignment.MiddleLeft;
+            label.AutoEllipsis = true;
+            label.Margin = Padding.Empty;
+            return label;
         }
 
         public static void Button(Button button, string text, bool primary)
@@ -46,13 +53,28 @@ namespace MedVision.AnnotationViewer
 
         public static TableLayoutPanel Rows(params float[] heights)
         {
-            TableLayoutPanel panel = new TableLayoutPanel { Dock = DockStyle.Fill,
+            TableLayoutPanel panel = new BufferedTableLayoutPanel { Dock = DockStyle.Fill,
                 ColumnCount = 1, RowCount = heights.Length, Margin = new Padding(0) };
             foreach (float height in heights)
                 panel.RowStyles.Add(new RowStyle(height < 0 ? SizeType.Percent : SizeType.Absolute,
                     height < 0 ? -height : height));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             return panel;
+        }
+
+        public static TableLayoutPanel CardRows(params float[] heights)
+        {
+            BufferedTableLayoutPanel panel = (BufferedTableLayoutPanel)Rows(heights);
+            panel.RoundTop = panel.RoundBottom = true;
+            return panel;
+        }
+
+        public static void MakeOpaque(Control control, Color parentColor)
+        {
+            // WinForms transparency repaints every ancestor; use local opaque surfaces instead.
+            Color color = control.BackColor.A == 255 && control.BackColor != SystemColors.Control ? control.BackColor : parentColor;
+            control.BackColor = color;
+            foreach (Control child in control.Controls) MakeOpaque(child, color);
         }
 
         public static void TextBox(TextBox box)

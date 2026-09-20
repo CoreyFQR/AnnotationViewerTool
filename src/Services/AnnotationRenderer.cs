@@ -18,7 +18,7 @@ namespace MedVision.AnnotationViewer
         private static readonly Color Blue = Color.FromArgb(91, 160, 255);
 
         public static void Draw(Graphics g, IList<AnnotationShape> gt, IList<AnnotationShape> pred,
-            float scale, ViewMode mode, bool labels, float iou)
+            float scale, ViewMode mode, bool labels, float iou, MatchResult cachedMatch = null)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using (Font font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold))
@@ -31,7 +31,7 @@ namespace MedVision.AnnotationViewer
                 }
                 if (mode == ViewMode.Errors)
                 {
-                    MatchResult match = DetectionMatcher.MatchDetections(gt, pred, iou);
+                    MatchResult match = cachedMatch ?? DetectionMatcher.MatchDetections(gt, pred, iou);
                     foreach (int index in match.MatchedPredIndexes) DrawShape(g, pred[index], scale, Green, "TP", false, labels, font);
                     foreach (int index in match.FalsePositiveIndexes) DrawShape(g, pred[index], scale, Red, "FP", false, labels, font);
                     foreach (int index in match.FalseNegativeIndexes) DrawShape(g, gt[index], scale, Blue, "FN", true, labels, font);

@@ -278,6 +278,7 @@ namespace MedVision.AnnotationViewer
             search.Clear();
             Field<TextBox>(form, "predFolderText").Text = predictions;
             Check(Field<Button>(form, "exportCompareButton").Enabled, "valid predictions enable comparison");
+            TestMatchCache(form);
             CheckBox keyboardToggle = Field<CheckBox>(form, "gtOnlyCheckBox");
             keyboardToggle.Focus();
             SendMessage(keyboardToggle.Handle, 0x100, new IntPtr(32), IntPtr.Zero);

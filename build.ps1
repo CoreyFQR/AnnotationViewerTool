@@ -1,10 +1,10 @@
-param([switch]$Test)
+param([switch]$Test, [string]$OutputDirectory = 'publish')
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
 if (-not (Test-Path -LiteralPath $compiler)) { throw 'Install .NET Framework 4.8 before building.' }
-$publish = Join-Path $root 'publish'
+$publish = if ([IO.Path]::IsPathRooted($OutputDirectory)) { $OutputDirectory } else { Join-Path $root $OutputDirectory }
 New-Item -ItemType Directory -Force -Path $publish | Out-Null
 $versionSource = Get-Content -LiteralPath (Join-Path $root 'src\AppInfo.cs') -Raw
 $version = [regex]::Match($versionSource, 'const string Version = "([^"]+)"').Groups[1].Value

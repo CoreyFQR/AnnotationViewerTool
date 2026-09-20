@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -8,6 +9,37 @@ namespace MedVision.AnnotationViewer
     internal sealed partial class ViewerForm
     {
         private bool updatingCanvas;
+        private bool resizingWindow;
+        private MatchResult currentMatch;
+        private IList<AnnotationShape> matchedGt, matchedPred;
+        private float matchedThreshold;
+
+        private MatchResult GetCurrentMatch()
+        {
+            float threshold = (float)iouNumeric.Value;
+            if (currentMatch == null || !ReferenceEquals(matchedGt, currentShapes) ||
+                !ReferenceEquals(matchedPred, currentPredShapes) || matchedThreshold != threshold)
+            {
+                currentMatch = DetectionMatcher.MatchDetections(currentShapes, currentPredShapes, threshold);
+                matchedGt = currentShapes;
+                matchedPred = currentPredShapes;
+                matchedThreshold = threshold;
+            }
+            return currentMatch;
+        }
+
+        protected override void OnResizeBegin(EventArgs e)
+        {
+            resizingWindow = true;
+            base.OnResizeBegin(e);
+        }
+
+        protected override void OnResizeEnd(EventArgs e)
+        {
+            resizingWindow = false;
+            base.OnResizeEnd(e);
+            RenderCurrent();
+        }
 
         private void FitToWindow()
         {
@@ -57,8 +89,13 @@ namespace MedVision.AnnotationViewer
             pictureBox.Visible = true;
             pictureBox.Invalidate();
             zoomLabel.Text = string.Format("{0:0.#}%", zoom * 100);
-            canvasTitle.Text = GetSelectedRecord() == null ? "标注查看" : "标注查看   ·   " + GetSelectedRecord().DisplayName +
+            string title = GetSelectedRecord() == null ? "标注查看" : "标注查看   ·   " + GetSelectedRecord().DisplayName +
                 string.Format("   ·   {0} × {1}", sourceImage.Width, sourceImage.Height);
+            if (canvasTitle.Text != title)
+            {
+                canvasTitle.Text = title;
+                fileToolTip.SetToolTip(canvasTitle, title);
+            }
             annotationCount.Text = "当前标注   ·   " + currentShapes.Count;
             }
             finally { updatingCanvas = false; }
@@ -68,10 +105,12 @@ namespace MedVision.AnnotationViewer
         {
             if (sourceImage == null) return;
             // Paint only the invalidated viewport. Never allocate a zoom-sized bitmap.
-            e.Graphics.InterpolationMode = zoom > 2 ? InterpolationMode.NearestNeighbor : InterpolationMode.HighQualityBicubic;
+            e.Graphics.InterpolationMode = zoom > 2 ? InterpolationMode.NearestNeighbor :
+                resizingWindow ? InterpolationMode.Bilinear : InterpolationMode.HighQualityBicubic;
             e.Graphics.DrawImage(sourceImage, new Rectangle(Point.Empty, pictureBox.Size));
+            ViewMode mode = CurrentViewMode();
             AnnotationRenderer.Draw(e.Graphics, currentShapes, currentPredShapes, zoom,
-                CurrentViewMode(), labelsButton.Checked, (float)iouNumeric.Value);
+                mode, labelsButton.Checked, (float)iouNumeric.Value, mode == ViewMode.Errors ? GetCurrentMatch() : null);
             PaintAnnotationSelection(e.Graphics);
         }
 

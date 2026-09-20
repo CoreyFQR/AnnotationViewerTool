@@ -8,6 +8,30 @@ namespace MedVision.AnnotationViewer
 {
     internal static class ControlGeometry
     {
+        // The application is system-DPI aware. Reading this once avoids acquiring window DCs
+        // and creating native control handles during preferred-size/layout calculations.
+        public static readonly float SystemScale = ReadSystemScale();
+        private static float ReadSystemScale()
+        {
+            using (Graphics graphics = Graphics.FromHwnd(IntPtr.Zero)) return graphics.DpiX / 96F;
+        }
+        public static void PaintCorners(Graphics graphics, Rectangle bounds, bool top, bool bottom)
+        {
+            if ((!top && !bottom) || bounds.Width < 2 || bounds.Height < 2) return;
+            GraphicsState state = graphics.Save();
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            if (!top) graphics.SetClip(new Rectangle(0, bounds.Height / 2, bounds.Width, bounds.Height), CombineMode.Intersect);
+            if (!bottom) graphics.SetClip(new Rectangle(0, 0, bounds.Width, bounds.Height / 2), CombineMode.Intersect);
+            using (GraphicsPath mask = new GraphicsPath(FillMode.Alternate))
+            using (GraphicsPath outline = Rounded(bounds, 14 * graphics.DpiX / 96F))
+            using (Brush background = new SolidBrush(Theme.Background))
+            {
+                mask.AddRectangle(bounds);
+                mask.AddPath(outline, false);
+                graphics.FillPath(background, mask);
+            }
+            graphics.Restore(state);
+        }
         public static GraphicsPath Rounded(RectangleF bounds, float radius)
         {
             float diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height));
@@ -92,12 +116,9 @@ namespace MedVision.AnnotationViewer
 
         public override Size GetPreferredSize(Size proposedSize)
         {
-            using (Graphics g = CreateGraphics())
-            {
-                float dpi = g.DpiX / 96F;
-                Size text = TextRenderer.MeasureText(g, Text, Font, Size.Empty, TextFormatFlags.SingleLine);
-                return new Size(text.Width + (int)(48 * dpi), Math.Max(text.Height + (int)(8 * dpi), (int)(30 * dpi)));
-            }
+            float dpi = ControlGeometry.SystemScale;
+            Size text = TextRenderer.MeasureText(Text, Font, Size.Empty, TextFormatFlags.SingleLine);
+            return new Size(text.Width + (int)(48 * dpi), Math.Max(text.Height + (int)(8 * dpi), (int)(30 * dpi)));
         }
 
         protected override void OnCheckedChanged(EventArgs e) { base.OnCheckedChanged(e); Invalidate(); }
@@ -151,12 +172,9 @@ namespace MedVision.AnnotationViewer
         {
             base.OnLayout(e);
             if (editor == null) return;
-            using (Graphics g = CreateGraphics())
-            {
-                int inset = (int)(11 * g.DpiX / 96F);
-                editor.SetBounds(inset, Math.Max(0, (ClientSize.Height - editor.PreferredHeight) / 2),
-                    Math.Max(1, ClientSize.Width - inset * 2), editor.PreferredHeight);
-            }
+            int inset = (int)(11 * ControlGeometry.SystemScale);
+            editor.SetBounds(inset, Math.Max(0, (ClientSize.Height - editor.PreferredHeight) / 2),
+                Math.Max(1, ClientSize.Width - inset * 2), editor.PreferredHeight);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -254,17 +272,14 @@ namespace MedVision.AnnotationViewer
         {
             base.OnLayout(e);
             if (Input == null) return;
-            using (Graphics g = CreateGraphics())
-            {
-                float dpi = g.DpiX / 96F;
-                int inset = (int)Math.Ceiling(6 * dpi);
-                int side = (int)(24 * dpi);
-                int gap = (int)(2 * dpi);
-                Decrease.SetBounds(inset, inset, side, Math.Max(1, Height - inset * 2));
-                Increase.SetBounds(Width - side - inset, inset, side, Math.Max(1, Height - inset * 2));
-                Input.SetBounds(inset + side + gap, Math.Max(0, (Height - Input.PreferredHeight) / 2),
-                    Math.Max(1, Width - 2 * (inset + side + gap)), Input.PreferredHeight);
-            }
+            float dpi = ControlGeometry.SystemScale;
+            int inset = (int)Math.Ceiling(6 * dpi);
+            int side = (int)(24 * dpi);
+            int gap = (int)(2 * dpi);
+            Decrease.SetBounds(inset, inset, side, Math.Max(1, Height - inset * 2));
+            Increase.SetBounds(Width - side - inset, inset, side, Math.Max(1, Height - inset * 2));
+            Input.SetBounds(inset + side + gap, Math.Max(0, (Height - Input.PreferredHeight) / 2),
+                Math.Max(1, Width - 2 * (inset + side + gap)), Input.PreferredHeight);
         }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -279,6 +294,18 @@ namespace MedVision.AnnotationViewer
         }
     }
 
+    internal sealed class SingleLineLabel : Label
+    {
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Rectangle bounds = new Rectangle(Padding.Left, Padding.Top,
+                Math.Max(0, Width - Padding.Horizontal), Math.Max(0, Height - Padding.Vertical));
+            TextRenderer.DrawText(e.Graphics, Text, Font, bounds, ForeColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
+    }
+
     // Use the same text rendering and disabled ink as the comparison switches.
     internal sealed class OptionLabel : Label
     {
@@ -289,23 +316,26 @@ namespace MedVision.AnnotationViewer
         }
     }
 
-    internal sealed class RoundedCard : Panel
+    internal sealed class BufferedTableLayoutPanel : TableLayoutPanel
     {
-        public RoundedCard(Control content)
-        {
-            DoubleBuffered = ResizeRedraw = true;
-            Dock = DockStyle.Fill;
-            Margin = Padding.Empty;
-            BackColor = Theme.Background;
-            Controls.Add(content);
-        }
+        public bool RoundTop { get; set; }
+        public bool RoundBottom { get; set; }
+        public BufferedTableLayoutPanel() { DoubleBuffered = true; ResizeRedraw = true; }
         protected override void OnPaintBackground(PaintEventArgs e)
         {
             base.OnPaintBackground(e);
-            if (Width < 2 || Height < 2) return;
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath outline = ControlGeometry.Rounded(new RectangleF(0, 0, Width, Height), 14 * e.Graphics.DpiX / 96F))
-                e.Graphics.FillPath(Brushes.White, outline);
+            ControlGeometry.PaintCorners(e.Graphics, ClientRectangle, RoundTop, RoundBottom);
+        }
+    }
+
+    internal sealed class BufferedFlowLayoutPanel : FlowLayoutPanel
+    {
+        public bool RoundBottom { get; set; }
+        public BufferedFlowLayoutPanel() { DoubleBuffered = true; ResizeRedraw = true; }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            base.OnPaintBackground(e);
+            ControlGeometry.PaintCorners(e.Graphics, ClientRectangle, false, RoundBottom);
         }
     }
 
@@ -326,11 +356,10 @@ namespace MedVision.AnnotationViewer
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            using (Graphics g = CreateGraphics()) rowHeight.ImageSize = new Size(1, (int)(34 * g.DpiY / 96F));
+            rowHeight.ImageSize = new Size(1, (int)(34 * ControlGeometry.SystemScale));
             if (!scaledColumns)
             {
-                using (Graphics g = CreateGraphics())
-                    foreach (ColumnHeader column in Columns) column.Width = (int)(column.Width * g.DpiX / 96F);
+                foreach (ColumnHeader column in Columns) column.Width = (int)(column.Width * ControlGeometry.SystemScale);
                 scaledColumns = true;
             }
         }

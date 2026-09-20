@@ -40,7 +40,7 @@ namespace MedVision.AnnotationViewer
             var candidates = new Dictionary<int, AnnotationShape>();
             if (CurrentViewMode() == ViewMode.Errors)
             {
-                var match = DetectionMatcher.MatchDetections(currentShapes, currentPredShapes, (float)iouNumeric.Value);
+                var match = GetCurrentMatch();
                 foreach (int i in match.FalseNegativeIndexes) candidates[i] = currentShapes[i];
                 foreach (var pair in match.PredToGtIndexes) candidates[pair.Value] = currentPredShapes[pair.Key];
             }

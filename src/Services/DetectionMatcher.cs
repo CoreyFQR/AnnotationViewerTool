@@ -14,6 +14,10 @@ namespace MedVision.AnnotationViewer
         {
             MatchResult result = new MatchResult();
             HashSet<int> usedGt = new HashSet<int>();
+            // Polygon bounds are calculated from every point. Compute each once per match,
+            // rather than again inside the GT x prediction loop.
+            RectangleF?[] gtBoxes = gtShapes.Select(shape => shape.Bounds).ToArray();
+            RectangleF?[] predBoxes = predShapes.Select(shape => shape.Bounds).ToArray();
             List<int> predOrder = Enumerable.Range(0, predShapes.Count)
                 .OrderByDescending(index => predShapes[index].Confidence.HasValue ? predShapes[index].Confidence.Value : 1.0f)
                 .ToList();
@@ -31,8 +35,8 @@ namespace MedVision.AnnotationViewer
                         continue;
                     }
 
-                    RectangleF? gtBounds = gtShapes[gtIndex].Bounds;
-                    RectangleF? predBounds = pred.Bounds;
+                    RectangleF? gtBounds = gtBoxes[gtIndex];
+                    RectangleF? predBounds = predBoxes[predIndex];
                     if (!gtBounds.HasValue || !predBounds.HasValue)
                     {
                         continue;
