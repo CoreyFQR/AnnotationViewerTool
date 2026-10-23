@@ -18,28 +18,37 @@ namespace MedVision.AnnotationViewer
         private static readonly Color Blue = Color.FromArgb(91, 160, 255);
 
         public static void Draw(Graphics g, IList<AnnotationShape> gt, IList<AnnotationShape> pred,
-            float scale, ViewMode mode, bool labels, float iou, MatchResult cachedMatch = null)
+            float scale, ViewMode mode, bool labels, float iou, MatchResult cachedMatch = null,
+            ISet<int> hiddenGtIndexes = null)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using (Font font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold))
             {
                 if (mode == ViewMode.Annotations)
                 {
-                    for (int i = 0; i < gt.Count; i++) DrawShape(g, gt[i], scale, ClassColor(gt[i]),
-                        (i + 1).ToString(), false, labels, font);
+                    for (int i = 0; i < gt.Count; i++)
+                        if (hiddenGtIndexes == null || !hiddenGtIndexes.Contains(i))
+                            DrawShape(g, gt[i], scale, ClassColor(gt[i]), (i + 1).ToString(), false, labels, font);
                     return;
                 }
                 if (mode == ViewMode.Errors)
                 {
                     MatchResult match = cachedMatch ?? DetectionMatcher.MatchDetections(gt, pred, iou);
-                    foreach (int index in match.MatchedPredIndexes) DrawShape(g, pred[index], scale, Green, "TP", false, labels, font);
+                    // Visibility never changes matching or statistics; hide a TP with its corresponding GT row.
+                    foreach (int index in match.MatchedPredIndexes)
+                        if (hiddenGtIndexes == null || !hiddenGtIndexes.Contains(match.PredToGtIndexes[index]))
+                            DrawShape(g, pred[index], scale, Green, "TP", false, labels, font);
                     foreach (int index in match.FalsePositiveIndexes) DrawShape(g, pred[index], scale, Red, "FP", false, labels, font);
-                    foreach (int index in match.FalseNegativeIndexes) DrawShape(g, gt[index], scale, Blue, "FN", true, labels, font);
+                    foreach (int index in match.FalseNegativeIndexes)
+                        if (hiddenGtIndexes == null || !hiddenGtIndexes.Contains(index))
+                            DrawShape(g, gt[index], scale, Blue, "FN", true, labels, font);
                     Legend(g, "TP 正确预测   ·   FP 误检   ·   FN 漏检", font);
                 }
                 else
                 {
-                    foreach (AnnotationShape shape in gt) DrawShape(g, shape, scale, Green, "GT", false, labels, font);
+                    for (int i = 0; i < gt.Count; i++)
+                        if (hiddenGtIndexes == null || !hiddenGtIndexes.Contains(i))
+                            DrawShape(g, gt[i], scale, Green, "GT", false, labels, font);
                     if (mode == ViewMode.Overlay)
                         foreach (AnnotationShape shape in pred) DrawShape(g, shape, scale, Orange, "Pred", true, labels, font);
                     Legend(g, mode == ViewMode.GroundTruth ? "GT 真实标注" : "GT 绿色实线   ·   Pred 橙色虚线", font);

@@ -45,8 +45,40 @@ namespace MedVision.AnnotationViewer
                 if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("预测路径超出选定目录。");
                 if (File.Exists(path)) return path;
+                // Explicit fallback also supports case-sensitive folders and shares.
+                string matched = ResolvePathIgnoringCase(prefix, path.Substring(prefix.Length));
+                if (matched != null) return matched;
             }
             return null;
+        }
+
+        private static string ResolvePathIgnoringCase(string folder, string relative)
+        {
+            string[] parts = relative.Split(Path.DirectorySeparatorChar);
+            string current = folder;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (!Directory.Exists(current)) return null;
+                bool isFile = i == parts.Length - 1;
+                string direct = Path.Combine(current, parts[i]);
+                if (isFile ? File.Exists(direct) : Directory.Exists(direct))
+                {
+                    current = direct;
+                    continue;
+                }
+                string match = null;
+                IEnumerable<string> entries = isFile ? Directory.EnumerateFiles(current) : Directory.EnumerateDirectories(current);
+                foreach (string entry in entries)
+                {
+                    if (!string.Equals(Path.GetFileName(entry), parts[i], StringComparison.OrdinalIgnoreCase)) continue;
+                    if (match != null)
+                        throw new InvalidDataException("存在多个仅大小写不同的预测路径，无法确定配对：" + direct);
+                    match = entry;
+                }
+                if (match == null) return null;
+                current = match;
+            }
+            return current;
         }
 
         public static void ValidateMapping(IList<ImageRecord> records, string folder)

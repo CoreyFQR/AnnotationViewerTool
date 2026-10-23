@@ -96,7 +96,7 @@ namespace MedVision.AnnotationViewer
                 canvasTitle.Text = title;
                 fileToolTip.SetToolTip(canvasTitle, title);
             }
-            annotationCount.Text = "当前标注   ·   " + currentShapes.Count;
+            UpdateAnnotationCount();
             }
             finally { updatingCanvas = false; }
         }
@@ -110,7 +110,8 @@ namespace MedVision.AnnotationViewer
             e.Graphics.DrawImage(sourceImage, new Rectangle(Point.Empty, pictureBox.Size));
             ViewMode mode = CurrentViewMode();
             AnnotationRenderer.Draw(e.Graphics, currentShapes, currentPredShapes, zoom,
-                mode, labelsButton.Checked, (float)iouNumeric.Value, mode == ViewMode.Errors ? GetCurrentMatch() : null);
+                mode, labelsButton.Checked, (float)iouNumeric.Value, mode == ViewMode.Errors ? GetCurrentMatch() : null,
+                hiddenAnnotationIndexes);
             PaintAnnotationSelection(e.Graphics);
         }
 

@@ -18,10 +18,27 @@ namespace MedVision.AnnotationViewer
     {
         private void WireEvents()
         {
+            selectAllAnnotationsButton.Click += delegate { SetFilteredAnnotationsChecked(true); };
+            selectNoAnnotationsButton.Click += delegate { SetFilteredAnnotationsChecked(false); };
+            annotationLabelFilter.SelectedIndexChanged += delegate
+            {
+                if (updatingAnnotationList) return;
+                PopulateAnnotationList(currentShapes);
+                pictureBox.Invalidate();
+            };
+            annotationList.ItemChecked += delegate(object sender, ItemCheckedEventArgs e)
+            {
+                if (updatingAnnotationList) return;
+                int index = AnnotationIndex(e.Item);
+                if (index < 0 || index >= currentShapes.Count) return;
+                if (e.Item.Checked) hiddenAnnotationIndexes.Remove(index);
+                else hiddenAnnotationIndexes.Add(index);
+                pictureBox.Invalidate();
+            };
             annotationList.SelectedIndexChanged += delegate
             {
-                if (syncingAnnotationSelection) return;
-                selectedAnnotationIndex = annotationList.SelectedIndices.Count == 0 ? -1 : annotationList.SelectedIndices[0];
+                if (syncingAnnotationSelection || updatingAnnotationList) return;
+                selectedAnnotationIndex = annotationList.SelectedItems.Count == 0 ? -1 : AnnotationIndex(annotationList.SelectedItems[0]);
                 pictureBox.Invalidate();
             };
             pictureBox.MouseDown += delegate(object sender, MouseEventArgs e)
@@ -143,7 +160,7 @@ namespace MedVision.AnnotationViewer
                     return;
                 }
                 if (isBusy || folderText.ContainsFocus || searchText.ContainsFocus ||
-                    predFolderText.ContainsFocus || iouNumeric.Parent.ContainsFocus) return;
+                    predFolderText.ContainsFocus || iouNumeric.Parent.ContainsFocus || annotationLabelFilter.ContainsFocus) return;
                 if (e.Control && e.KeyCode == Keys.Z)
                 {
                     e.SuppressKeyPress = true;

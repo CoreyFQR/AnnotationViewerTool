@@ -50,6 +50,8 @@ namespace MedVision.AnnotationViewer
                 TestEditServices();
                 TestAuditRegressions();
                 TestVersion210();
+                TestPredictionFilenameCase();
+                TestVisibilityRendering();
                 Exception failure = null;
                 using (ViewerForm form = new ViewerForm())
                 {
@@ -57,14 +59,14 @@ namespace MedVision.AnnotationViewer
                     form.Location = new Point(-20000, -20000);
                     form.ShowInTaskbar = false;
                     form.Shown += async delegate {
-                        try { await TestUi(form); await TestEditingUi(form); }
+                        try { await TestUi(form); await TestAnnotationFilterUi(form); await TestEditingUi(form); }
                         catch (Exception ex) { failure = ex; }
                         finally { form.Close(); }
                     };
                     Application.Run(form);
                 }
                 if (failure != null) throw failure;
-                string report = "Annatation Viewer 2.1.0: " + checks + " checks passed.\n" + DateTime.Now.ToString("s");
+                string report = "Annatation Viewer " + AppInfo.Version + ": " + checks + " checks passed.\n" + DateTime.Now.ToString("s");
                 File.WriteAllText(Path.Combine(qa, "test-results.txt"), report);
                 Console.WriteLine(report);
                 return 0;
@@ -169,7 +171,7 @@ namespace MedVision.AnnotationViewer
                 Check(access.CanWrite, "viewer releases source image file lock");
             using (StatisticsForm dialog = StatisticsForm.Annotations(stats, dataset)) SaveForm(dialog, "statistics.png");
             using (StatisticsForm dialog = StatisticsForm.Comparison(comparisons, dataset, predictions, 0.5F)) SaveForm(dialog, "comparison-statistics.png");
-            Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == "2.1.0.0", "assembly version is 2.1.0");
+            Check(Assembly.GetExecutingAssembly().GetName().Version.ToString() == AppInfo.Version + ".0", "assembly version matches application version");
             using (Stream logoStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MedVision.logo.png"))
             using (Image logo = logoStream == null ? null : Image.FromStream(logoStream))
             {
@@ -241,9 +243,9 @@ namespace MedVision.AnnotationViewer
 
         private static async Task TestUi(ViewerForm form)
         {
-            Check(form.Text == "Annatation Viewer · 标注工作台 · 2.1.0", "window title uses the 2.1.0 product name");
+            Check(form.Text == "Annatation Viewer · 标注工作台 · " + AppInfo.Version, "window title uses the current product version");
             Check(Field<Label>(form, "brandTitle").Text == "Annatation Viewer", "header title matches product name");
-            Check(Field<Label>(form, "brandSubtitle").Text == "标注工作台 · 2.1.0", "header subtitle includes the 2.1.0 version");
+            Check(Field<Label>(form, "brandSubtitle").Text == "标注工作台 · " + AppInfo.Version, "header subtitle includes the current version");
             Check(Theme.Accent.ToArgb() == Color.FromArgb(0, 76, 151).ToArgb() &&
                 Theme.Canvas.ToArgb() == Color.FromArgb(0, 35, 70).ToArgb(), "Pantone blue theme palette is active");
             CheckEmptyCenter(form);
@@ -263,6 +265,7 @@ namespace MedVision.AnnotationViewer
             Button browse = Field<Button>(form, "browseButton");
             Check(address.Parent.Height == browse.Height && address.Parent.Top == browse.Top, "address field and folder buttons have aligned heights");
             await form.OpenFolderAsync(dataset);
+            TestAnnotationVisibilityUi(form);
             Check(Field<ListBox>(form, "fileList").Items.Count == 2, "async folder load populates library");
             Check(Field<PictureBox>(form, "pictureBox").Image == null, "preview allocates no scaled bitmap");
             SaveForm(form, "ui-annotations.png");

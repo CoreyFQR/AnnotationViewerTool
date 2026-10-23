@@ -50,6 +50,7 @@ namespace MedVision.AnnotationViewer
         private Image sourceImage;
         private List<AnnotationShape> currentShapes = new List<AnnotationShape>();
         private List<AnnotationShape> currentPredShapes = new List<AnnotationShape>();
+        private readonly HashSet<int> hiddenAnnotationIndexes = new HashSet<int>();
         private float zoom = 1.0f;
         private bool changingSelection;
 
@@ -69,6 +70,7 @@ namespace MedVision.AnnotationViewer
             Icon = LoadWindowIcon();
             BuildLayout();
             WireEvents();
+            ResetAnnotationLabelFilter();
             UpdatePredictionControlsState();
             SetStatus("就绪");
             ResumeLayout(true);

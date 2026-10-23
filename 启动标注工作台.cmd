@@ -1,2 +1,2 @@
 @echo off
-start "" "%~dp0publish\AnnotationViewerV2.1.0.exe"
+start "" "%~dp0publish\AnnotationViewerV2.1.5.exe"

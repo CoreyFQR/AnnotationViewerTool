@@ -380,6 +380,17 @@ namespace MedVision.AnnotationViewer
             if (selected && e.ColumnIndex == 0)
                 using (Brush accent = new SolidBrush(Theme.Accent)) e.Graphics.FillRectangle(accent, e.Bounds.Left, e.Bounds.Top + 5, 3, e.Bounds.Height - 10);
             Rectangle text = Rectangle.Inflate(e.Bounds, -8, 0);
+            if (CheckBoxes && e.ColumnIndex == 0)
+            {
+                var state = e.Item.Checked ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal :
+                    System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal;
+                Size glyph = CheckBoxRenderer.GetGlyphSize(e.Graphics, state);
+                CheckBoxRenderer.DrawCheckBox(e.Graphics,
+                    new Point(e.Bounds.Left + (int)(4 * ControlGeometry.SystemScale), e.Bounds.Top + (e.Bounds.Height - glyph.Height) / 2), state);
+                int indent = (int)(20 * ControlGeometry.SystemScale);
+                text.X += indent;
+                text.Width = Math.Max(0, text.Width - indent);
+            }
             TextRenderer.DrawText(e.Graphics, e.SubItem.Text, Font, text, selected ? Theme.Accent : Theme.Ink,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             if (e.Item.Focused && Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(e.Bounds, -1, -1));
@@ -397,6 +408,34 @@ namespace MedVision.AnnotationViewer
 
     internal sealed class FileListBox : ListBox
     {
+        internal int TextLineHeight { get; private set; }
+        internal int TextLineGap { get; private set; }
+
+        public FileListBox() { UpdateRowHeight(); }
+
+        private void UpdateRowHeight()
+        {
+            float scale = ControlGeometry.SystemScale;
+            TextLineHeight = TextRenderer.MeasureText("国Ag", Font, Size.Empty, TextFormatFlags.SingleLine).Height;
+            TextLineGap = (int)Math.Ceiling(2 * scale);
+            // Owner-drawn rows must reserve two complete lines at the actual font size.
+            ItemHeight = Math.Max((int)Math.Ceiling(57 * scale),
+                2 * TextLineHeight + TextLineGap + (int)Math.Ceiling(14 * scale));
+            Invalidate();
+        }
+
+        protected override void OnFontChanged(EventArgs e)
+        {
+            base.OnFontChanged(e);
+            UpdateRowHeight();
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            UpdateRowHeight();
+        }
+
         [DllImport("user32.dll")]
         private static extern int GetScrollPos(IntPtr window, int bar);
 

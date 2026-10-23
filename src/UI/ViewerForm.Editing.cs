@@ -19,14 +19,20 @@ namespace MedVision.AnnotationViewer
         private void SelectAnnotation(int index)
         {
             selectedAnnotationIndex = index >= 0 && index < currentShapes.Count ? index : -1;
+            // Reveal a canvas selection even when its label is outside the current list filter.
+            if (selectedAnnotationIndex >= 0 && !MatchesAnnotationLabel(currentShapes[selectedAnnotationIndex]))
+                annotationLabelFilter.SelectedIndex = 0;
             syncingAnnotationSelection = true;
             try
             {
-                foreach (ListViewItem item in annotationList.Items) item.Selected = item.Index == selectedAnnotationIndex;
-                if (selectedAnnotationIndex >= 0)
+                foreach (ListViewItem item in annotationList.Items)
                 {
-                    annotationList.Items[selectedAnnotationIndex].Focused = true;
-                    annotationList.EnsureVisible(selectedAnnotationIndex);
+                    item.Selected = AnnotationIndex(item) == selectedAnnotationIndex;
+                    if (item.Selected)
+                    {
+                        item.Focused = true;
+                        item.EnsureVisible();
+                    }
                 }
             }
             finally { syncingAnnotationSelection = false; }
@@ -45,7 +51,7 @@ namespace MedVision.AnnotationViewer
                 foreach (var pair in match.PredToGtIndexes) candidates[pair.Value] = currentPredShapes[pair.Key];
             }
             else for (int i = 0; i < currentShapes.Count; i++) candidates[i] = currentShapes[i];
-            var hits = candidates.Where(p => HitShape(p.Value, source, 5F / zoom))
+            var hits = candidates.Where(p => !hiddenAnnotationIndexes.Contains(p.Key) && HitShape(p.Value, source, 5F / zoom))
                 .OrderBy(p => p.Value.Bounds.Value.Width * p.Value.Bounds.Value.Height).ThenBy(p => p.Key).Select(p => p.Key).ToList();
             // Repeated clicks cycle overlapping boxes without losing access to a larger box.
             int previous = hits.IndexOf(selectedAnnotationIndex);
@@ -69,6 +75,7 @@ namespace MedVision.AnnotationViewer
         private void PaintAnnotationSelection(Graphics graphics)
         {
             if (selectedAnnotationIndex < 0 || selectedAnnotationIndex >= currentShapes.Count) return;
+            if (hiddenAnnotationIndexes.Contains(selectedAnnotationIndex)) return;
             AnnotationShape shape = currentShapes[selectedAnnotationIndex];
             if (!shape.Bounds.HasValue) return;
             RectangleF bounds = shape.Bounds.Value;

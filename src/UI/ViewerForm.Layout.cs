@@ -186,7 +186,6 @@ namespace MedVision.AnnotationViewer
             fileList.BorderStyle = BorderStyle.None;
             fileList.IntegralHeight = false;
             fileList.DrawMode = DrawMode.OwnerDrawFixed;
-            fileList.ItemHeight = 57;
             fileList.DrawItem += DrawFileItem;
             fileList.HorizontalScrollbar = true;
             fileList.MouseMove += delegate(object sender, MouseEventArgs e)
@@ -248,7 +247,7 @@ namespace MedVision.AnnotationViewer
 
         private Control BuildInspector()
         {
-            TableLayoutPanel inspector = Theme.CardRows(34, 24, 40, 40, 40, 36, 40, 42, 42, -100);
+            TableLayoutPanel inspector = Theme.CardRows(34, 24, 40, 40, 40, 36, 40, 42, 42, 40, -100);
             inspector.BackColor = Color.White;
             inspector.Padding = new Padding(14, 10, 14, 8);
             inspector.Controls.Add(Theme.Label("检查与对比", 12, Theme.Ink), 0, 0);
@@ -294,19 +293,46 @@ namespace MedVision.AnnotationViewer
             Theme.Button(exportCompareButton, "导出对比图", true);
             exportCompareButton.Dock = DockStyle.Fill;
             inspector.Controls.Add(exportCompareButton, 0, 7);
-            inspector.Controls.Add(annotationCount, 0, 8);
+            TableLayoutPanel annotationHeader = new BufferedTableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Margin = Padding.Empty };
+            annotationHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            annotationHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 52));
+            annotationHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64));
+            annotationHeader.Controls.Add(annotationCount, 0, 0);
+            Theme.Button(selectAllAnnotationsButton, "全选", false);
+            Theme.Button(selectNoAnnotationsButton, "全不选", false);
+            selectAllAnnotationsButton.Dock = selectNoAnnotationsButton.Dock = DockStyle.Fill;
+            selectAllAnnotationsButton.AccessibleName = "全选当前筛选的标注";
+            selectNoAnnotationsButton.AccessibleName = "全不选当前筛选的标注";
+            fileToolTip.SetToolTip(selectAllAnnotationsButton, "显示当前标签筛选中的所有标注");
+            fileToolTip.SetToolTip(selectNoAnnotationsButton, "隐藏当前标签筛选中的所有标注");
+            annotationHeader.Controls.Add(selectAllAnnotationsButton, 1, 0);
+            annotationHeader.Controls.Add(selectNoAnnotationsButton, 2, 0);
+            inspector.Controls.Add(annotationHeader, 0, 8);
+            TableLayoutPanel annotationFilterRow = new BufferedTableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = Padding.Empty };
+            annotationFilterRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64));
+            annotationFilterRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            annotationFilterRow.Controls.Add(Theme.Label("标签筛选", 9, Theme.Ink), 0, 0);
+            annotationLabelFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            annotationLabelFilter.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            annotationLabelFilter.AccessibleName = "按标签筛选当前标注";
+            annotationLabelFilter.IntegralHeight = false;
+            annotationLabelFilter.MaxDropDownItems = 12;
+            annotationFilterRow.Controls.Add(annotationLabelFilter, 1, 0);
+            inspector.Controls.Add(annotationFilterRow, 0, 9);
             annotationList.Dock = DockStyle.Fill;
             annotationList.View = View.Details;
+            annotationList.CheckBoxes = true;
+            annotationList.AccessibleName = "当前标注（勾选显示）";
             annotationList.FullRowSelect = true;
             annotationList.HideSelection = false;
             annotationList.MultiSelect = false;
             annotationList.BorderStyle = BorderStyle.None;
             annotationList.ForeColor = Theme.Ink;
-            annotationList.Columns.Add("#", 32);
+            annotationList.Columns.Add("#", 58);
             annotationList.Columns.Add("标签", 102);
             annotationList.Columns.Add("类型", 86);
             annotationList.Columns.Add("坐标", 160);
-            inspector.Controls.Add(annotationList, 0, 9);
+            inspector.Controls.Add(annotationList, 0, 10);
             return inspector;
         }
 
@@ -315,18 +341,21 @@ namespace MedVision.AnnotationViewer
             if (e.Index < 0 || e.Index >= visibleRecords.Count) return;
             ImageRecord record = visibleRecords[e.Index];
             bool selected = (e.State & DrawItemState.Selected) != 0;
+            float scale = ControlGeometry.SystemScale;
             using (Brush background = new SolidBrush(selected ? Theme.SoftAccent : Color.White))
                 e.Graphics.FillRectangle(background, e.Bounds);
             if (selected) using (Brush accent = new SolidBrush(Theme.Accent))
-                e.Graphics.FillRectangle(accent, e.Bounds.X, e.Bounds.Y + 8, 3, e.Bounds.Height - 16);
-            int scrollOffset = ((FileListBox)fileList).HorizontalOffset;
-            Rectangle name = new Rectangle(e.Bounds.X + 12 - scrollOffset, e.Bounds.Y + 7, Math.Max(e.Bounds.Width, fileList.HorizontalExtent) - 22, 24);
+                e.Graphics.FillRectangle(accent, e.Bounds.X, e.Bounds.Y + 8 * scale, 3 * scale, e.Bounds.Height - 16 * scale);
+            FileListBox list = (FileListBox)fileList;
+            int textHeight = list.TextLineHeight;
+            int textTop = e.Bounds.Y + Math.Max(0, (e.Bounds.Height - 2 * textHeight - list.TextLineGap) / 2);
+            Rectangle name = new Rectangle(e.Bounds.X + (int)Math.Ceiling(12 * scale) - list.HorizontalOffset,
+                textTop, Math.Max(1, Math.Max(e.Bounds.Width, fileList.HorizontalExtent) - (int)Math.Ceiling(22 * scale)), textHeight);
             TextRenderer.DrawText(e.Graphics, record.DisplayName, fileList.Font, name,
                 selected ? Theme.Accent : Theme.Ink, TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
-            name.Y += 24;
-            name.Height = 20;
+            name.Y += textHeight + list.TextLineGap;
             TextRenderer.DrawText(e.Graphics, record.AnnotationKind + "   ·   " + record.ShapeCount + " 个框",
-                fileList.Font, name, Theme.Muted, TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                fileList.Font, name, Theme.Muted, TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         }
 
         private void DrawSplitterGrip(object sender, PaintEventArgs e)

@@ -61,7 +61,7 @@ namespace MedVision.AnnotationViewer
                     fileList.Items.Add(FormatFileListItem(record));
                 }
                 fileList.HorizontalExtent = visibleRecords.Count == 0 ? 0 : visibleRecords.Max(record =>
-                    TextRenderer.MeasureText(record.DisplayName, fileList.Font).Width + 32);
+                    TextRenderer.MeasureText(record.DisplayName, fileList.Font).Width + (int)Math.Ceiling(32 * ControlGeometry.SystemScale));
                 hoveredFile = -1;
                 fileToolTip.SetToolTip(fileList, null);
 
@@ -236,6 +236,7 @@ namespace MedVision.AnnotationViewer
                 currentShapes = AnnotationReader.LoadAnnotations(record, sourceImage.Width, sourceImage.Height);
                 EditTransaction.Verify(record.AnnotationPath, currentAnnotationBytes);
                 currentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
+                ResetAnnotationLabelFilter();
                 PopulateAnnotationList(currentShapes);
 
                 if (autoFit)
@@ -325,14 +326,19 @@ namespace MedVision.AnnotationViewer
 
         private void PopulateAnnotationList(IList<AnnotationShape> shapes)
         {
+            updatingAnnotationList = true;
             annotationList.BeginUpdate();
             try
             {
                 annotationList.Items.Clear();
+                bool selectionVisible = false;
                 for (int i = 0; i < shapes.Count; i++)
                 {
                     AnnotationShape shape = shapes[i];
+                    if (!MatchesAnnotationLabel(shape)) continue;
                     ListViewItem item = new ListViewItem((i + 1).ToString());
+                    item.Tag = i;
+                    item.Checked = !hiddenAnnotationIndexes.Contains(i);
                     item.SubItems.Add(shape.Label);
                     item.SubItems.Add(shape.ShapeType);
                     RectangleF? bounds = shape.Bounds;
@@ -341,9 +347,17 @@ namespace MedVision.AnnotationViewer
                         : "-");
                     item.ToolTipText = string.Join("  ·  ", item.SubItems.Cast<ListViewItem.ListViewSubItem>().Select(s => s.Text).ToArray());
                     annotationList.Items.Add(item);
+                    if (i == selectedAnnotationIndex)
+                    {
+                        item.Selected = true;
+                        selectionVisible = true;
+                    }
                 }
+                if (!selectionVisible) selectedAnnotationIndex = -1;
+                selectAllAnnotationsButton.Enabled = selectNoAnnotationsButton.Enabled = annotationList.Items.Count > 0;
+                UpdateAnnotationCount();
             }
-            finally { annotationList.EndUpdate(); }
+            finally { annotationList.EndUpdate(); updatingAnnotationList = false; }
         }
 
         private void MoveSelection(int direction)
@@ -362,6 +376,7 @@ namespace MedVision.AnnotationViewer
 
         private void ClearCurrentImage()
         {
+            hiddenAnnotationIndexes.Clear();
             currentMatch = null;
             matchedGt = matchedPred = null;
             selectedAnnotationIndex = -1;
@@ -388,6 +403,7 @@ namespace MedVision.AnnotationViewer
 
             currentShapes = new List<AnnotationShape>();
             currentPredShapes = new List<AnnotationShape>();
+            ResetAnnotationLabelFilter();
         }
 
         private void SetStatus(string text)
