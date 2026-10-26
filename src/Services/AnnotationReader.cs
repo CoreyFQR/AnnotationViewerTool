@@ -118,13 +118,17 @@ namespace MedVision.AnnotationViewer
                     throw new InvalidDataException(Path.GetFileName(txtPath) + " 第 " + (i + 1) + " 行：无效的类别或坐标。");
                 }
                 if (classId < 0 || !Finite(centerX) || !Finite(centerY) || !Finite(width) || !Finite(height) ||
-                    centerX < 0 || centerX > 1 || centerY < 0 || centerY > 1 || width <= 0 || width > 1 || height <= 0 || height > 1)
+                    centerX < 0 || centerX > 1 || centerY < 0 || centerY > 1 || width < 0 || width > 1 || height < 0 || height > 1 ||
+                    (!isPrediction && (width == 0 || height == 0)))
                     throw new InvalidDataException(Path.GetFileName(txtPath) + " 第 " + (i + 1) + " 行：坐标须归一化到 0–1，宽高须大于 0。");
 
                 bool hasConfidence = parts.Length >= 6 &&
                     float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out confidence);
                 if (parts.Length == 6 && (!hasConfidence || !Finite(confidence) || confidence < 0 || confidence > 1))
                     throw new InvalidDataException(Path.GetFileName(txtPath) + " 第 " + (i + 1) + " 行：置信度须为 0–1。");
+                // Predictions clipped to an image edge can have no area. They cannot be drawn or matched,
+                // and must not prevent valid detections in the same file from loading.
+                if (isPrediction && (width == 0 || height == 0)) continue;
                 float pixelWidth = width * imageWidth;
                 float pixelHeight = height * imageHeight;
                 float left = (centerX - width / 2.0f) * imageWidth;

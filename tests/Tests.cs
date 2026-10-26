@@ -53,6 +53,7 @@ namespace MedVision.AnnotationViewer
                 TestPredictionFilenameCase();
                 TestVisibilityRendering();
                 TestConfidenceServices();
+                TestDegeneratePredictions();
                 Exception failure = null;
                 using (ViewerForm form = new ViewerForm())
                 {
