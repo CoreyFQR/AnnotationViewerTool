@@ -247,7 +247,7 @@ namespace MedVision.AnnotationViewer
 
         private Control BuildInspector()
         {
-            TableLayoutPanel inspector = Theme.CardRows(34, 24, 40, 40, 40, 36, 40, 42, 42, 40, -100);
+            TableLayoutPanel inspector = Theme.CardRows(34, 24, 40, 40, 40, 40, 36, 40, 42, 42, 40, -100);
             inspector.BackColor = Color.White;
             inspector.Padding = new Padding(14, 10, 14, 8);
             inspector.Controls.Add(Theme.Label("检查与对比", 12, Theme.Ink), 0, 0);
@@ -280,19 +280,36 @@ namespace MedVision.AnnotationViewer
             threshold.Controls.Add(iouLabel, 0, 0);
             threshold.Controls.Add(new NumericField(iouNumeric), 1, 0);
             inspector.Controls.Add(threshold, 0, 4);
+            TableLayoutPanel confidence = new BufferedTableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
+            confidence.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            confidence.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            confidenceLabel.Text = "置信度阈值";
+            confidenceLabel.Dock = DockStyle.Fill;
+            confidenceLabel.TextAlign = ContentAlignment.MiddleLeft;
+            confidenceLabel.ForeColor = Theme.Ink;
+            confidenceNumeric.DecimalPlaces = 2;
+            confidenceNumeric.Minimum = 0M;
+            confidenceNumeric.Maximum = 1M;
+            confidenceNumeric.Increment = 0.05M;
+            confidenceNumeric.Value = 0.25M;
+            confidenceNumeric.AccessibleName = "置信度阈值";
+            confidence.Controls.Add(confidenceLabel, 0, 0);
+            confidence.Controls.Add(new NumericField(confidenceNumeric), 1, 0);
+            fileToolTip.SetToolTip(confidenceLabel, "仅保留置信度不低于阈值的预测；0.00 显示全部。未提供置信度的旧格式预测保留。");
+            inspector.Controls.Add(confidence, 0, 5);
             FlowLayoutPanel options = new BufferedFlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             gtOnlyCheckBox.Text = "仅显示 GT";
             errorAnalysisCheckBox.Text = "错误分析";
             gtOnlyCheckBox.AutoSize = errorAnalysisCheckBox.AutoSize = true;
             options.Controls.Add(gtOnlyCheckBox);
             options.Controls.Add(errorAnalysisCheckBox);
-            inspector.Controls.Add(options, 0, 5);
+            inspector.Controls.Add(options, 0, 6);
             Theme.Button(comparisonStatsButton, "统计误差  ·  TP / FP / FN", false);
             comparisonStatsButton.Dock = DockStyle.Fill;
-            inspector.Controls.Add(comparisonStatsButton, 0, 6);
+            inspector.Controls.Add(comparisonStatsButton, 0, 7);
             Theme.Button(exportCompareButton, "导出对比图", true);
             exportCompareButton.Dock = DockStyle.Fill;
-            inspector.Controls.Add(exportCompareButton, 0, 7);
+            inspector.Controls.Add(exportCompareButton, 0, 8);
             TableLayoutPanel annotationHeader = new BufferedTableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Margin = Padding.Empty };
             annotationHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             annotationHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 52));
@@ -307,7 +324,7 @@ namespace MedVision.AnnotationViewer
             fileToolTip.SetToolTip(selectNoAnnotationsButton, "隐藏当前标签筛选中的所有标注");
             annotationHeader.Controls.Add(selectAllAnnotationsButton, 1, 0);
             annotationHeader.Controls.Add(selectNoAnnotationsButton, 2, 0);
-            inspector.Controls.Add(annotationHeader, 0, 8);
+            inspector.Controls.Add(annotationHeader, 0, 9);
             TableLayoutPanel annotationFilterRow = new BufferedTableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = Padding.Empty };
             annotationFilterRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64));
             annotationFilterRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -318,7 +335,7 @@ namespace MedVision.AnnotationViewer
             annotationLabelFilter.IntegralHeight = false;
             annotationLabelFilter.MaxDropDownItems = 12;
             annotationFilterRow.Controls.Add(annotationLabelFilter, 1, 0);
-            inspector.Controls.Add(annotationFilterRow, 0, 9);
+            inspector.Controls.Add(annotationFilterRow, 0, 10);
             annotationList.Dock = DockStyle.Fill;
             annotationList.View = View.Details;
             annotationList.CheckBoxes = true;
@@ -332,7 +349,7 @@ namespace MedVision.AnnotationViewer
             annotationList.Columns.Add("标签", 102);
             annotationList.Columns.Add("类型", 86);
             annotationList.Columns.Add("坐标", 160);
-            inspector.Controls.Add(annotationList, 0, 10);
+            inspector.Controls.Add(annotationList, 0, 11);
             return inspector;
         }
 

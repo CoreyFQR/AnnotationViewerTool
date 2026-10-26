@@ -52,6 +52,7 @@ namespace MedVision.AnnotationViewer
                 TestVersion210();
                 TestPredictionFilenameCase();
                 TestVisibilityRendering();
+                TestConfidenceServices();
                 Exception failure = null;
                 using (ViewerForm form = new ViewerForm())
                 {
@@ -59,7 +60,7 @@ namespace MedVision.AnnotationViewer
                     form.Location = new Point(-20000, -20000);
                     form.ShowInTaskbar = false;
                     form.Shown += async delegate {
-                        try { await TestUi(form); await TestAnnotationFilterUi(form); await TestEditingUi(form); }
+                        try { await TestUi(form); await TestAnnotationFilterUi(form); await TestConfidenceUi(form); await TestEditingUi(form); }
                         catch (Exception ex) { failure = ex; }
                         finally { form.Close(); }
                     };

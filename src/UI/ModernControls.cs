@@ -220,8 +220,8 @@ namespace MedVision.AnnotationViewer
             Theme.Button(Increase, "+", false);
             Decrease.Borderless = Increase.Borderless = true;
             Input.Margin = Decrease.Margin = Increase.Margin = Padding.Empty;
-            Decrease.AccessibleName = "减小 IoU 匹配阈值";
-            Increase.AccessibleName = "增大 IoU 匹配阈值";
+            Decrease.AccessibleName = "减小 " + model.AccessibleName;
+            Increase.AccessibleName = "增大 " + model.AccessibleName;
             Controls.Add(Input); Controls.Add(Decrease); Controls.Add(Increase);
             Decrease.Click += delegate { Step(-1); };
             Increase.Click += delegate { Step(1); };

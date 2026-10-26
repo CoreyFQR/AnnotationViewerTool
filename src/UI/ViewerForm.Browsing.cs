@@ -182,6 +182,7 @@ namespace MedVision.AnnotationViewer
             catch (Exception ex)
             {
                 resolvedPredictionFolder = null;
+                allCurrentPredShapes = new List<AnnotationShape>();
                 currentPredShapes = new List<AnnotationShape>();
                 UpdatePredictionControlsState();
                 RenderCurrent();
@@ -208,6 +209,7 @@ namespace MedVision.AnnotationViewer
 
             iouLabel.Enabled = hasPredictionFolder;
             iouNumeric.Enabled = hasPredictionFolder;
+            confidenceLabel.Enabled = confidenceNumeric.Enabled = hasPredictionFolder;
             gtOnlyCheckBox.Enabled = hasPredictionFolder;
             errorAnalysisCheckBox.Enabled = hasPredictionFolder;
             comparisonStatsButton.Enabled = hasPredictionFolder;
@@ -235,7 +237,8 @@ namespace MedVision.AnnotationViewer
                 currentAnnotationBytes = File.ReadAllBytes(record.AnnotationPath);
                 currentShapes = AnnotationReader.LoadAnnotations(record, sourceImage.Width, sourceImage.Height);
                 EditTransaction.Verify(record.AnnotationPath, currentAnnotationBytes);
-                currentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
+                allCurrentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
+                ApplyConfidenceFilter();
                 ResetAnnotationLabelFilter();
                 PopulateAnnotationList(currentShapes);
 
@@ -266,6 +269,7 @@ namespace MedVision.AnnotationViewer
 
         private void ReloadCurrentPredictions()
         {
+            allCurrentPredShapes = new List<AnnotationShape>();
             currentPredShapes = new List<AnnotationShape>();
             if (sourceImage == null)
             {
@@ -278,7 +282,13 @@ namespace MedVision.AnnotationViewer
                 return;
             }
 
-            currentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
+            allCurrentPredShapes = LoadPredictionsForRecord(record, sourceImage.Width, sourceImage.Height);
+            ApplyConfidenceFilter();
+        }
+
+        private void ApplyConfidenceFilter()
+        {
+            currentPredShapes = PredictionResolver.FilterByConfidence(allCurrentPredShapes, (float)confidenceNumeric.Value);
         }
 
         private List<AnnotationShape> LoadPredictionsForRecord(ImageRecord record, int imageWidth, int imageHeight)
@@ -305,13 +315,14 @@ namespace MedVision.AnnotationViewer
             {
                 MatchResult match = GetCurrentMatch();
                 compareText = string.Format(
-                    "  |  Pred {0}  |  TP {1} FP {2} FN {3} @ IoU {4:0.00}  |  {5}",
+                    "  |  Pred {0}  |  TP {1} FP {2} FN {3} @ IoU {4:0.00}  |  {5}  |  置信度 ≥ {6:0.00}",
                     currentPredShapes.Count,
                     match.TruePositiveCount,
                     match.FalsePositiveCount,
                     match.FalseNegativeCount,
                     (float)iouNumeric.Value,
-                    errorAnalysisCheckBox.Checked ? "错误分析" : "GT+Pred");
+                    errorAnalysisCheckBox.Checked ? "错误分析" : "GT+Pred",
+                    confidenceNumeric.Value);
             }
 
             SetStatus(string.Format(
@@ -402,6 +413,7 @@ namespace MedVision.AnnotationViewer
             }
 
             currentShapes = new List<AnnotationShape>();
+            allCurrentPredShapes = new List<AnnotationShape>();
             currentPredShapes = new List<AnnotationShape>();
             ResetAnnotationLabelFilter();
         }

@@ -73,6 +73,12 @@ namespace MedVision.AnnotationViewer
                 RenderCurrent();
                 UpdateCurrentStatus();
             };
+            confidenceNumeric.ValueChanged += delegate
+            {
+                ApplyConfidenceFilter();
+                RenderCurrent();
+                UpdateCurrentStatus();
+            };
             gtOnlyCheckBox.CheckedChanged += delegate
             {
                 if (gtOnlyCheckBox.Checked) errorAnalysisCheckBox.Checked = false;
@@ -160,7 +166,8 @@ namespace MedVision.AnnotationViewer
                     return;
                 }
                 if (isBusy || folderText.ContainsFocus || searchText.ContainsFocus ||
-                    predFolderText.ContainsFocus || iouNumeric.Parent.ContainsFocus || annotationLabelFilter.ContainsFocus) return;
+                    predFolderText.ContainsFocus || iouNumeric.Parent.ContainsFocus || confidenceNumeric.Parent.ContainsFocus ||
+                    annotationLabelFilter.ContainsFocus) return;
                 if (e.Control && e.KeyCode == Keys.Z)
                 {
                     e.SuppressKeyPress = true;

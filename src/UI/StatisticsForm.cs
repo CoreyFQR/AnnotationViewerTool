@@ -166,9 +166,10 @@ namespace MedVision.AnnotationViewer
 
         private float DeviceScale() { using (Graphics graphics = CreateGraphics()) return graphics.DpiX / 96F; }
 
-        public static StatisticsForm Comparison(IList<ComparisonStatsRow> rows, string root, string pred, float iou)
+        public static StatisticsForm Comparison(IList<ComparisonStatsRow> rows, string root, string pred, float iou, float minConfidence = 0F)
         {
-            return new StatisticsForm("预测误差统计", "GT: " + root + "\nPred: " + pred + "    IoU " + iou.ToString("0.00"),
+            return new StatisticsForm("预测误差统计", "GT: " + root + "\nPred: " + pred + "    IoU " + iou.ToString("0.00") +
+                "    置信度 ≥ " + minConfidence.ToString("0.00"),
                 new[] { "文件夹", "类别", "图片数", "GT", "Pred", "TP", "FP", "FN", "Precision", "Recall", "F1" },
                 rows.Select(r => new[] { r.FolderName, r.LabelName, N(r.ImageCount), N(r.GtCount), N(r.PredCount),
                     N(r.TruePositiveCount), N(r.FalsePositiveCount), N(r.FalseNegativeCount),

@@ -125,8 +125,10 @@ namespace MedVision.AnnotationViewer
             IList<ImageRecord> compareRecords,
             string predLabelFolder,
             float iouThreshold,
-            string rootFolder, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken))
+            string rootFolder, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken),
+            float minConfidence = 0F)
         {
+            PredictionResolver.ValidateConfidenceThreshold(minConfidence);
             Dictionary<string, ComparisonStatsBucket> buckets =
                 new Dictionary<string, ComparisonStatsBucket>(StringComparer.CurrentCultureIgnoreCase);
 
@@ -136,7 +138,8 @@ namespace MedVision.AnnotationViewer
                 using (Image image = AnnotationReader.LoadImageWithoutLock(record.ImagePath))
                 {
                     List<AnnotationShape> gtShapes = AnnotationReader.LoadAnnotations(record, image.Width, image.Height);
-                    List<AnnotationShape> predShapes = PredictionResolver.LoadPredictionsFromFolder(record, predLabelFolder, image.Width, image.Height);
+                    List<AnnotationShape> predShapes = PredictionResolver.LoadPredictionsFromFolder(
+                        record, predLabelFolder, image.Width, image.Height, minConfidence);
                     MatchResult match = DetectionMatcher.MatchDetections(gtShapes, predShapes, iouThreshold);
                     string folderName = BuildStatsFolderName(rootFolder, record.ImagePath);
 

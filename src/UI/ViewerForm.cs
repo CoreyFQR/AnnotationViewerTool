@@ -40,6 +40,8 @@ namespace MedVision.AnnotationViewer
         private readonly Button predBrowseButton = new ModernButton();
         private readonly Label iouLabel = new OptionLabel();
         private readonly NumericUpDown iouNumeric = new NumericUpDown();
+        private readonly Label confidenceLabel = new OptionLabel();
+        private readonly NumericUpDown confidenceNumeric = new NumericUpDown();
         private readonly CheckBox gtOnlyCheckBox = new ToggleSwitch();
         private readonly CheckBox errorAnalysisCheckBox = new ToggleSwitch();
         private readonly Button comparisonStatsButton = new ModernButton();
@@ -50,6 +52,7 @@ namespace MedVision.AnnotationViewer
         private Image sourceImage;
         private List<AnnotationShape> currentShapes = new List<AnnotationShape>();
         private List<AnnotationShape> currentPredShapes = new List<AnnotationShape>();
+        private List<AnnotationShape> allCurrentPredShapes = new List<AnnotationShape>();
         private readonly HashSet<int> hiddenAnnotationIndexes = new HashSet<int>();
         private float zoom = 1.0f;
         private bool changingSelection;

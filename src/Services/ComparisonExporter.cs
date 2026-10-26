@@ -9,8 +9,9 @@ namespace MedVision.AnnotationViewer
     internal static class ComparisonExporter
     {
         public static int Export(IList<ImageRecord> records, string predictionFolder, float iou,
-            string outputRoot, CancellationToken cancellation, IProgress<string> progress)
+            string outputRoot, CancellationToken cancellation, IProgress<string> progress, float minConfidence = 0F)
         {
+            PredictionResolver.ValidateConfidenceThreshold(minConfidence);
             PredictionResolver.ValidateMapping(records, predictionFolder);
             int count = 0;
             foreach (ImageRecord record in records)
@@ -19,7 +20,7 @@ namespace MedVision.AnnotationViewer
                 using (Image image = AnnotationReader.LoadImageWithoutLock(record.ImagePath))
                 {
                     var gt = AnnotationReader.LoadAnnotations(record, image.Width, image.Height);
-                    var pred = PredictionResolver.LoadPredictionsFromFolder(record, predictionFolder, image.Width, image.Height);
+                    var pred = PredictionResolver.LoadPredictionsFromFolder(record, predictionFolder, image.Width, image.Height, minConfidence);
                     AnnotationRenderer.Save(image, gt, pred, ViewMode.Overlay, iou,
                         BuildExportPath(Path.Combine(outputRoot, "gt_pred_overlay"), record.DisplayName));
                     cancellation.ThrowIfCancellationRequested();

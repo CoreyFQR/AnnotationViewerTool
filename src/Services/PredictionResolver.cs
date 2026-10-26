@@ -97,8 +97,24 @@ namespace MedVision.AnnotationViewer
             }
         }
 
-        internal static List<AnnotationShape> LoadPredictionsFromFolder(ImageRecord record, string predLabelFolder, int imageWidth, int imageHeight)
+        internal static void ValidateConfidenceThreshold(float minConfidence)
         {
+            if (float.IsNaN(minConfidence) || float.IsInfinity(minConfidence) || minConfidence < 0F || minConfidence > 1F)
+                throw new ArgumentOutOfRangeException("minConfidence", "置信度阈值须为 0–1。");
+        }
+
+        internal static List<AnnotationShape> FilterByConfidence(IList<AnnotationShape> shapes, float minConfidence)
+        {
+            ValidateConfidenceThreshold(minConfidence);
+            if (shapes == null) throw new ArgumentNullException("shapes");
+            // Five-column prediction files do not contain scores; retain their previous behavior.
+            return shapes.Where(shape => !shape.Confidence.HasValue || shape.Confidence.Value >= minConfidence).ToList();
+        }
+
+        internal static List<AnnotationShape> LoadPredictionsFromFolder(ImageRecord record, string predLabelFolder,
+            int imageWidth, int imageHeight, float minConfidence = 0F)
+        {
+            ValidateConfidenceThreshold(minConfidence);
             if (string.IsNullOrEmpty(predLabelFolder) || !Directory.Exists(predLabelFolder))
             {
                 return new List<AnnotationShape>();
@@ -110,7 +126,8 @@ namespace MedVision.AnnotationViewer
                 return new List<AnnotationShape>();
             }
 
-            return AnnotationReader.LoadYoloAnnotations(predPath, imageWidth, imageHeight, record.ClassNames, true);
+            return FilterByConfidence(
+                AnnotationReader.LoadYoloAnnotations(predPath, imageWidth, imageHeight, record.ClassNames, true), minConfidence);
         }
     }
 }

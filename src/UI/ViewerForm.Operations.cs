@@ -103,19 +103,20 @@ namespace MedVision.AnnotationViewer
             string root = loadedFolder;
             string predictions = resolvedPredictionFolder;
             float threshold = (float)iouNumeric.Value;
+            float confidence = (float)confidenceNumeric.Value;
             List<ComparisonStatsRow> rows = null;
             await RunWorkAsync("正在计算 TP / FP / FN…", async delegate(CancellationToken cancellation)
             {
                 var result = await Task.Run(() => {
                     PredictionResolver.ValidateMapping(snapshot, predictions);
-                    return StatisticsService.BuildComparisonStatsRows(snapshot, predictions, threshold, root, cancellation);
+                    return StatisticsService.BuildComparisonStatsRows(snapshot, predictions, threshold, root, cancellation, confidence);
                 }, cancellation);
                 cancellation.ThrowIfCancellationRequested();
                 rows = result;
-                SetStatus("误差统计完成 · IoU " + threshold.ToString("0.00"));
+                SetStatus("误差统计完成 · IoU " + threshold.ToString("0.00") + " · 置信度 ≥ " + confidence.ToString("0.00"));
             });
             if (rows != null && !IsDisposed && !closeAfterWork)
-                using (StatisticsForm dialog = StatisticsForm.Comparison(rows, root, predictions, threshold)) dialog.ShowDialog(this);
+                using (StatisticsForm dialog = StatisticsForm.Comparison(rows, root, predictions, threshold, confidence)) dialog.ShowDialog(this);
         }
 
         private async Task ExportComparisonImagesAsync()
@@ -130,12 +131,13 @@ namespace MedVision.AnnotationViewer
             List<ImageRecord> snapshot = new List<ImageRecord>(records);
             string predictions = resolvedPredictionFolder;
             float threshold = (float)iouNumeric.Value;
+            float confidence = (float)confidenceNumeric.Value;
             await RunWorkAsync("正在准备导出…", async delegate(CancellationToken cancellation)
             {
                 var progress = new Progress<string>(message => { if (isBusy && !IsDisposed) SetStatus(message); });
-                int count = await Task.Run(() => ComparisonExporter.Export(snapshot, predictions, threshold, destination, cancellation, progress), cancellation);
+                int count = await Task.Run(() => ComparisonExporter.Export(snapshot, predictions, threshold, destination, cancellation, progress, confidence), cancellation);
                 cancellation.ThrowIfCancellationRequested();
-                SetStatus("导出完成 · " + count + " 张图 · " + destination);
+                SetStatus("导出完成 · " + count + " 张图 · 置信度 ≥ " + confidence.ToString("0.00") + " · " + destination);
                 MessageBox.Show(this, "已导出 " + count + " 张图的叠加图和错误分析图。\n\n" + destination,
                     "导出完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
